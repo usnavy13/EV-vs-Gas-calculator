@@ -1,6 +1,7 @@
 'use client';
 
 import { CalculatorInputs } from '@/types';
+import PriceLookup from './PriceLookup';
 
 interface InputSectionProps {
   inputs: CalculatorInputs;
@@ -15,11 +16,21 @@ export default function InputSection({ inputs, onChange }: InputSectionProps) {
     });
   };
 
+  const handleUpdate = (updates: Partial<CalculatorInputs>) => {
+    onChange({
+      ...inputs,
+      ...updates,
+    });
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 space-y-6">
       <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
         Input Parameters
       </h2>
+
+      {/* Price Lookup Component */}
+      <PriceLookup inputs={inputs} onUpdate={handleUpdate} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* EV Efficiency */}
