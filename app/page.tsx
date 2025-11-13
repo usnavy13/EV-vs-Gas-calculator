@@ -15,7 +15,6 @@ const defaultInputs: CalculatorInputs = {
   homeElectricityPrice: 0.12,
   fastChargingPrice: 0.40,
   baseDistance: 30,
-  gasType: 'regular',
 };
 
 export default function Home() {
@@ -24,34 +23,31 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
             EV vs Gas Calculator
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400">
             Compare the real-world costs of electric vehicles and gas-powered cars
           </p>
+          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+            Compare EV (Home & Fast Charging) vs Gas (Regular & Premium)
+          </p>
         </div>
 
         {/* Input Section */}
-        <div className="mb-8">
-          <InputSection inputs={inputs} onChange={setInputs} />
-        </div>
+        <InputSection inputs={inputs} onChange={setInputs} />
 
         {/* Chart Visualization */}
-        <div className="mb-8">
-          <CostChart results={results} />
-        </div>
+        <CostChart results={results} />
 
         {/* Distance Scenarios */}
-        <div>
-          <DistanceScenarios results={results} />
-        </div>
+        <DistanceScenarios results={results} />
 
         {/* Footer */}
-        <footer className="mt-12 text-center text-sm text-gray-500 dark:text-gray-400">
+        <footer className="pt-8 border-t border-gray-200 dark:border-gray-700 text-center text-sm text-gray-500 dark:text-gray-400">
           <p>
             Calculator factors in efficiency (mi/kWh vs mpg), fuel costs, and charging options
           </p>

@@ -63,19 +63,21 @@ export function calculateScenario(
     inputs.evEfficiency,
     inputs.fastChargingPrice
   );
-  const gasPrice = inputs.gasType === 'regular' 
-    ? inputs.regularGasPrice 
-    : inputs.premiumGasPrice;
-  const gasCostPerMile = calculateGasCostPerMile(
+  const gasRegularCostPerMile = calculateGasCostPerMile(
     inputs.gasEfficiency,
-    gasPrice
+    inputs.regularGasPrice
+  );
+  const gasPremiumCostPerMile = calculateGasCostPerMile(
+    inputs.gasEfficiency,
+    inputs.premiumGasPrice
   );
 
   return {
     distance,
     evHomeCharging: calculateCostBreakdown(evHomeCostPerMile, distance),
     evFastCharging: calculateCostBreakdown(evFastCostPerMile, distance),
-    gas: calculateCostBreakdown(gasCostPerMile, distance),
+    gasRegular: calculateCostBreakdown(gasRegularCostPerMile, distance),
+    gasPremium: calculateCostBreakdown(gasPremiumCostPerMile, distance),
   };
 }
 

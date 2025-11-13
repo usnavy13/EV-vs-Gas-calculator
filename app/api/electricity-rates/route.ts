@@ -31,9 +31,11 @@ export async function GET(request: NextRequest) {
       console.log(`[Electricity Rates API] State rate lookup result: ${rate || 'null'}`);
       
       if (rate) {
+        // Round to nearest cent (2 decimal places)
+        const roundedRate = Math.round(rate * 100) / 100;
         console.log(`[Electricity Rates API] Returning state-specific rate for ${stateCode}`);
         return NextResponse.json({
-          residential: rate,
+          residential: roundedRate,
           source: `Average for ${stateCode}`,
         });
       } else {
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
     // Fallback to national average residential rate
     console.log(`[Electricity Rates API] Returning fallback rate`);
     return NextResponse.json({
-      residential: 0.12,
+      residential: 0.12, // Already rounded to nearest cent
       source: 'National average (fallback)',
     });
     
@@ -135,8 +137,8 @@ async function getStateElectricityRate(stateCode: string): Promise<number | null
             const priceValue = typeof latestPrice === 'string' ? parseFloat(latestPrice) : latestPrice;
             
             if (priceValue && !isNaN(priceValue) && priceValue > 0) {
-              // EIA returns price in cents per kWh, convert to dollars
-              const rateInDollars = priceValue / 100;
+              // EIA returns price in cents per kWh, convert to dollars and round to nearest cent
+              const rateInDollars = Math.round((priceValue / 100) * 100) / 100;
               console.log(`[getStateElectricityRate] Found EIA rate for ${stateCode}: $${rateInDollars}/kWh (from ${priceValue} cents)`);
               return rateInDollars;
             } else {

@@ -6,7 +6,6 @@ export interface CalculatorInputs {
   homeElectricityPrice: number; // $/kWh
   fastChargingPrice: number; // $/kWh
   baseDistance: number; // miles
-  gasType: 'regular' | 'premium';
 }
 
 export interface CostBreakdown {
@@ -19,7 +18,8 @@ export interface ScenarioResult {
   distance: number;
   evHomeCharging: CostBreakdown;
   evFastCharging: CostBreakdown;
-  gas: CostBreakdown;
+  gasRegular: CostBreakdown;
+  gasPremium: CostBreakdown;
 }
 
 export interface CalculationResults {
@@ -34,6 +34,7 @@ export interface ChartDataPoint {
   scenario: string;
   evHome: number;
   evFast: number;
-  gas: number;
+  gasRegular: number;
+  gasPremium: number;
 }
 
