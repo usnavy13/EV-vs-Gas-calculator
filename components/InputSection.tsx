@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { CalculatorInputs, UsageScale } from '@/types';
 import Tooltip from './Tooltip';
 import PriceLookup from './PriceLookup';
-import { EV_PRESETS, GAS_PRESETS, VehiclePreset } from './VehiclePresets';
-
-type SectionKey = 'vehicle' | 'usage' | 'prices';
+import FuelEconomyVehicleSelect, {
+  EfficiencyMode,
+  VehicleSelectionSummary,
+} from './FuelEconomyVehicleSelect';
 
 interface InputSectionProps {
   inputs: CalculatorInputs;
@@ -25,6 +26,13 @@ const usageOptions: { value: UsageScale; label: string }[] = [
   { value: 'yearly', label: 'Year' },
 ];
 
+const EFFICIENCY_MODES: EfficiencyMode[] = ['combined', 'city', 'highway'];
+const MODE_LABELS: Record<EfficiencyMode, string> = {
+  combined: 'Combined',
+  city: 'City',
+  highway: 'Highway',
+};
+
 export default function InputSection({
   inputs,
   onChange,
@@ -34,22 +42,47 @@ export default function InputSection({
   onDistanceChange,
   onResetInputs,
 }: InputSectionProps) {
-  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
-    vehicle: true,
-    usage: true,
-    prices: true,
-  });
-  const [selectedEV, setSelectedEV] = useState<VehiclePreset | null>(null);
-  const [selectedGas, setSelectedGas] = useState<VehiclePreset | null>(null);
+  const [selectedEV, setSelectedEV] = useState<VehicleSelectionSummary | null>(null);
+  const [selectedGas, setSelectedGas] = useState<VehicleSelectionSummary | null>(null);
   const [autoFlags, setAutoFlags] = useState({
     evEfficiency: false,
     gasEfficiency: false,
   });
+  const [evRatingMode, setEvRatingMode] = useState<EfficiencyMode>('combined');
+  const [gasRatingMode, setGasRatingMode] = useState<EfficiencyMode>('combined');
+  const [evLookupKey, setEvLookupKey] = useState(0);
+  const [gasLookupKey, setGasLookupKey] = useState(0);
+  const [localDistanceValue, setLocalDistanceValue] = useState<string>(() => {
+    const displayValue = Number.isFinite(displayDistance) ? displayDistance : 0;
+    return displayValue.toString();
+  });
+  const inputRef = useRef<HTMLInputElement>(null);
+  const isTypingRef = useRef(false);
 
   const distanceLabel = useMemo(() => {
     const option = usageOptions.find((opt) => opt.value === usageScale);
     return option ? option.label.toLowerCase() : 'day';
   }, [usageScale]);
+
+  // Sync local value with displayDistance when it changes externally (e.g., scale change)
+  useEffect(() => {
+    if (!isTypingRef.current) {
+      const displayValue = Number.isFinite(displayDistance) ? displayDistance : 0;
+      setLocalDistanceValue(displayValue.toString());
+    }
+  }, [displayDistance, usageScale]);
+
+  // Debounce: update parent after user stops typing
+  useEffect(() => {
+    if (!isTypingRef.current) return;
+    if (localDistanceValue === '') return;
+    const numeric = parseFloat(localDistanceValue);
+    if (!Number.isFinite(numeric) || numeric < 0) return;
+    const id = window.setTimeout(() => {
+      onDistanceChange(numeric);
+    }, 600);
+    return () => window.clearTimeout(id);
+  }, [localDistanceValue, onDistanceChange]);
 
   const handleChange = (
     field: keyof CalculatorInputs,
@@ -93,29 +126,85 @@ export default function InputSection({
   };
 
   const handleDistanceInput = (value: string) => {
-    const numeric = parseFloat(value);
-    onDistanceChange(Number.isFinite(numeric) ? numeric : 0);
+    // Update local state only while typing - don't update parent yet
+    setLocalDistanceValue(value);
+    isTypingRef.current = true;
   };
 
-  const toggleSection = (section: SectionKey) => {
-    setOpenSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
+  const handleDistanceBlur = () => {
+    isTypingRef.current = false;
+    const numeric = parseFloat(localDistanceValue);
+    if (Number.isFinite(numeric) && numeric >= 0) {
+      onDistanceChange(numeric);
+      setLocalDistanceValue(numeric.toString());
+    } else if (localDistanceValue === '') {
+      // If empty, set to 0
+      onDistanceChange(0);
+      setLocalDistanceValue('0');
+    } else {
+      // Reset to displayDistance if invalid
+      const displayValue = Number.isFinite(displayDistance) ? displayDistance : 0;
+      setLocalDistanceValue(displayValue.toString());
+      onDistanceChange(displayValue);
+    }
   };
 
-  const handlePresetChange = (type: 'ev' | 'gas', presetName: string) => {
+  const handleDistanceKeyDown = (e: { key: string; currentTarget: HTMLInputElement }) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    }
+  };
+
+  const applySelectionEfficiency = (
+    field: 'evEfficiency' | 'gasEfficiency',
+    selection: VehicleSelectionSummary,
+    mode: EfficiencyMode
+  ) => {
+    const value = selection.efficiencies[mode];
+    if (isValidEfficiencyValue(value)) {
+      handleChange(field, value as number, true);
+    }
+  };
+
+  const handleVehicleSelection = (
+    type: 'ev' | 'gas',
+    selection: VehicleSelectionSummary | null
+  ) => {
     if (type === 'ev') {
-      const preset = EV_PRESETS.find((p) => p.name === presetName) || null;
-      setSelectedEV(preset);
-      if (preset) {
-        handleChange('evEfficiency', preset.efficiency, true);
+      setSelectedEV(selection);
+      if (selection) {
+        const mode = resolvePreferredMode(selection, evRatingMode);
+        setEvRatingMode(mode);
+        applySelectionEfficiency('evEfficiency', selection, mode);
+      } else {
+        setAutoFlags((prev) => ({ ...prev, evEfficiency: false }));
       }
     } else {
-      const preset = GAS_PRESETS.find((p) => p.name === presetName) || null;
-      setSelectedGas(preset);
-      if (preset) {
-        handleChange('gasEfficiency', preset.efficiency, true);
+      setSelectedGas(selection);
+      if (selection) {
+        const mode = resolvePreferredMode(selection, gasRatingMode);
+        setGasRatingMode(mode);
+        applySelectionEfficiency('gasEfficiency', selection, mode);
+      } else {
+        setAutoFlags((prev) => ({ ...prev, gasEfficiency: false }));
+      }
+    }
+  };
+
+  const handleRatingModeChange = (type: 'ev' | 'gas', mode: EfficiencyMode) => {
+    if (type === 'ev') {
+      setEvRatingMode(mode);
+      if (selectedEV) {
+        const resolved = resolvePreferredMode(selectedEV, mode);
+        setEvRatingMode(resolved);
+        applySelectionEfficiency('evEfficiency', selectedEV, resolved);
+      }
+    } else {
+      setGasRatingMode(mode);
+      if (selectedGas) {
+        const resolved = resolvePreferredMode(selectedGas, mode);
+        setGasRatingMode(resolved);
+        applySelectionEfficiency('gasEfficiency', selectedGas, resolved);
       }
     }
   };
@@ -127,6 +216,10 @@ export default function InputSection({
   const handleReset = () => {
     setSelectedEV(null);
     setSelectedGas(null);
+    setEvLookupKey((prev) => prev + 1);
+    setGasLookupKey((prev) => prev + 1);
+    setEvRatingMode('combined');
+    setGasRatingMode('combined');
     setAutoFlags({ evEfficiency: false, gasEfficiency: false });
     onResetInputs();
   };
@@ -158,166 +251,172 @@ export default function InputSection({
           title="Vehicle"
           description="Choose presets and fine-tune efficiency."
           helper="Most EVs fall between 2.5–4.5 mi/kWh. Most gas sedans are ~30 mpg."
-          isOpen={openSections.vehicle}
-          onToggle={() => toggleSection('vehicle')}
         >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <PresetSelect
-              label="EV model"
-              value={selectedEV?.name || ''}
-              options={EV_PRESETS}
-              placeholder="Select EV"
-              onChange={(value) => handlePresetChange('ev', value)}
-            />
-            <PresetSelect
-              label="Gas model"
-              value={selectedGas?.name || ''}
-              options={GAS_PRESETS}
-              placeholder="Select gas car"
-              onChange={(value) => handlePresetChange('gas', value)}
-            />
-          </div>
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <EfficiencyField
-              label="EV efficiency"
-              tooltip="Miles per kilowatt-hour. Higher is better."
-              value={inputs.evEfficiency}
-              placeholder="3.5"
-              suffix="mi/kWh"
-              isAuto={autoFlags.evEfficiency}
-              presetName={selectedEV?.name}
-              onChange={(val) =>
-                handleChange('evEfficiency', parseFloat(val) || 0)
-              }
-              onEdit={() => clearAuto('evEfficiency')}
-            />
-            <EfficiencyField
-              label="Gas efficiency"
-              tooltip="Miles per gallon. Hybrids ~55 mpg, trucks ~20 mpg."
-              value={inputs.gasEfficiency}
-              placeholder="25"
-              suffix="mpg"
-              isAuto={autoFlags.gasEfficiency}
-              presetName={selectedGas?.name}
-              onChange={(val) =>
-                handleChange('gasEfficiency', parseFloat(val) || 0)
-              }
-              onEdit={() => clearAuto('gasEfficiency')}
-            />
-          </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FuelEconomyVehicleSelect
+                key={`ev-selector-${evLookupKey}`}
+                label="EV lookup"
+                kind="ev"
+                selected={selectedEV}
+                ratingMode={evRatingMode}
+                availableModes={getAvailableModesForSelection(selectedEV)}
+                onRatingModeChange={(mode) => handleRatingModeChange('ev', mode)}
+                onVehicleResolved={(selection) => handleVehicleSelection('ev', selection)}
+              />
+              <FuelEconomyVehicleSelect
+                key={`gas-selector-${gasLookupKey}`}
+                label="Gas / hybrid lookup"
+                kind="gas"
+                selected={selectedGas}
+                ratingMode={gasRatingMode}
+                availableModes={getAvailableModesForSelection(selectedGas)}
+                onRatingModeChange={(mode) => handleRatingModeChange('gas', mode)}
+                onVehicleResolved={(selection) => handleVehicleSelection('gas', selection)}
+              />
+            </div>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <EfficiencyField
+                label="EV efficiency"
+                tooltip="Miles per kilowatt-hour. Higher is better."
+                value={inputs.evEfficiency}
+                placeholder="3.5"
+                suffix="mi/kWh"
+                isAuto={autoFlags.evEfficiency}
+                autoSource={selectedEV?.description}
+                autoModeLabel={MODE_LABELS[evRatingMode]}
+                onChange={(val) =>
+                  handleChange('evEfficiency', parseFloat(val) || 0)
+                }
+                onEdit={() => clearAuto('evEfficiency')}
+              />
+              <EfficiencyField
+                label="Gas efficiency"
+                tooltip="Miles per gallon. Hybrids ~55 mpg, trucks ~20 mpg."
+                value={inputs.gasEfficiency}
+                placeholder="25"
+                suffix="mpg"
+                isAuto={autoFlags.gasEfficiency}
+                autoSource={selectedGas?.description}
+                autoModeLabel={MODE_LABELS[gasRatingMode]}
+                onChange={(val) =>
+                  handleChange('gasEfficiency', parseFloat(val) || 0)
+                }
+                onEdit={() => clearAuto('gasEfficiency')}
+              />
+            </div>
         </CollapsibleSection>
 
-        <CollapsibleSection
-          title="Usage"
-          description="Tell us how far you drive."
-          helper="We scale this distance across daily, weekly, monthly, and yearly scenarios automatically."
-          isOpen={openSections.usage}
-          onToggle={() => toggleSection('usage')}
-        >
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="min-w-[200px] flex-1">
-              <label className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Distance per {distanceLabel}
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min={0}
-                  value={Number.isFinite(displayDistance) ? displayDistance : 0}
-                  onChange={(e) => handleDistanceInput(e.target.value)}
-                  className="form-input-shell pr-16"
-                  placeholder="30"
-                />
-                <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-xs font-semibold text-slate-400">
-                  mi
-                </span>
-              </div>
+        <div className="grid gap-4 lg:grid-cols-[2fr,2fr,1fr]">
+          <CollapsibleSection
+            title="Prices"
+            description="Paste in rates or use the lookup tool."
+            helper="Use current electricity and gas prices for your ZIP so results stay relevant."
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <LabeledInput
+                label="Home charging rate"
+                tooltip="¢/kWh from your utility bill."
+                value={inputs.homeElectricityPrice}
+                suffix="$ / kWh"
+                step="0.01"
+                onChange={(value) =>
+                  handleChange(
+                    'homeElectricityPrice',
+                    parseFloat(value) || 0
+                  )
+                }
+                placeholder="0.18"
+              />
+              <LabeledInput
+                label="Fast charging rate"
+                tooltip="Public DC fast charging price per kWh."
+                value={inputs.fastChargingPrice}
+                suffix="$ / kWh"
+                step="0.01"
+                onChange={(value) =>
+                  handleChange('fastChargingPrice', parseFloat(value) || 0)
+                }
+                placeholder="0.50"
+              />
+              <LabeledInput
+                label="Gas (regular)"
+                tooltip="Local regular unleaded price per gallon."
+                value={inputs.regularGasPrice}
+                suffix="$ / gal"
+                step="0.01"
+                onChange={(value) =>
+                  handleChange('regularGasPrice', parseFloat(value) || 0)
+                }
+                placeholder="3.09"
+              />
+              <LabeledInput
+                label="Gas (premium)"
+                tooltip="Premium unleaded price per gallon."
+                value={inputs.premiumGasPrice}
+                suffix="$ / gal"
+                step="0.01"
+                onChange={(value) =>
+                  handleChange('premiumGasPrice', parseFloat(value) || 0)
+                }
+                placeholder="3.94"
+              />
             </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Timeframe
-              </label>
-              <div className="segmented-control">
-                {usageOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={`segmented-control__item ${
-                      usageScale === option.value ? 'is-active' : ''
-                    }`}
-                    onClick={() => onUsageScaleChange(option.value)}
-                    aria-pressed={usageScale === option.value}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title="Prices"
-          description="Paste in rates or use the lookup tool."
-          helper="Use current electricity and gas prices for your ZIP so results stay relevant."
-          isOpen={openSections.prices}
-          onToggle={() => toggleSection('prices')}
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <LabeledInput
-              label="Home charging rate"
-              tooltip="¢/kWh from your utility bill."
-              value={inputs.homeElectricityPrice}
-              suffix="$ / kWh"
-              step="0.01"
-              onChange={(value) =>
-                handleChange(
-                  'homeElectricityPrice',
-                  parseFloat(value) || 0
-                )
-              }
-              placeholder="0.18"
-            />
-            <LabeledInput
-              label="Fast charging rate"
-              tooltip="Public DC fast charging price per kWh."
-              value={inputs.fastChargingPrice}
-              suffix="$ / kWh"
-              step="0.01"
-              onChange={(value) =>
-                handleChange('fastChargingPrice', parseFloat(value) || 0)
-              }
-              placeholder="0.50"
-            />
-            <LabeledInput
-              label="Gas (regular)"
-              tooltip="Local regular unleaded price per gallon."
-              value={inputs.regularGasPrice}
-              suffix="$ / gal"
-              step="0.01"
-              onChange={(value) =>
-                handleChange('regularGasPrice', parseFloat(value) || 0)
-              }
-              placeholder="3.09"
-            />
-            <LabeledInput
-              label="Gas (premium)"
-              tooltip="Premium unleaded price per gallon."
-              value={inputs.premiumGasPrice}
-              suffix="$ / gal"
-              step="0.01"
-              onChange={(value) =>
-                handleChange('premiumGasPrice', parseFloat(value) || 0)
-              }
-              placeholder="3.94"
-            />
-          </div>
-          <div className="mt-6">
+          </CollapsibleSection>
+          <div>
             <PriceLookup
               onUpdate={(updates) => onChange({ ...inputs, ...updates })}
             />
           </div>
-        </CollapsibleSection>
+          <CollapsibleSection
+            title="Usage"
+            description="Tell us how far you drive."
+            helper="We scale this distance across daily, weekly, monthly, and yearly scenarios automatically."
+          >
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="w-[180px]">
+                <label className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Distance per {distanceLabel}
+                </label>
+                <div className="relative">
+                  <input
+                    ref={inputRef}
+                    type="number"
+                    min={0}
+                    value={localDistanceValue}
+                    onChange={(e) => handleDistanceInput(e.target.value)}
+                    onBlur={handleDistanceBlur}
+                    onKeyDown={handleDistanceKeyDown}
+                    className="form-input-shell pr-16"
+                    placeholder="30"
+                  />
+                  <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-xs font-semibold text-slate-400">
+                    mi
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Timeframe
+                </label>
+                <div className="segmented-control">
+                  {usageOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`segmented-control__item ${
+                        usageScale === option.value ? 'is-active' : ''
+                      }`}
+                      onClick={() => onUsageScaleChange(option.value)}
+                      aria-pressed={usageScale === option.value}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CollapsibleSection>
+        </div>
       </div>
     </section>
   );
@@ -327,72 +426,25 @@ function CollapsibleSection({
   title,
   description,
   helper,
-  isOpen,
-  onToggle,
   children,
 }: {
   title: string;
   description: string;
   helper: string;
-  isOpen: boolean;
-  onToggle: () => void;
   children: React.ReactNode;
 }) {
   return (
     <div className="rounded-3xl border border-slate-100 bg-white/80 p-5 shadow-sm shadow-slate-900/5">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-start justify-between gap-4 text-left"
-      >
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-            {title}
-          </p>
-          <h3 className="mt-1 text-lg font-semibold text-slate-900">
-            {description}
-          </h3>
-          <p className="text-sm text-slate-500">{helper}</p>
-        </div>
-        <span className="badge-label mt-1">
-          {isOpen ? 'Collapse' : 'Expand'}
-        </span>
-      </button>
-      {isOpen && <div className="mt-5 space-y-5">{children}</div>}
-    </div>
-  );
-}
-
-function PresetSelect({
-  label,
-  value,
-  options,
-  placeholder,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: VehiclePreset[];
-  placeholder: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div>
-      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {label}
-      </label>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-2 form-input-shell"
-      >
-        <option value="">{placeholder}</option>
-        {options.map((preset) => (
-          <option key={preset.name} value={preset.name}>
-            {preset.name} ({preset.efficiency})
-          </option>
-        ))}
-      </select>
+      <div className="mb-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+          {title}
+        </p>
+        <h3 className="mt-1 text-lg font-semibold text-slate-900">
+          {description}
+        </h3>
+        <p className="text-sm text-slate-500">{helper}</p>
+      </div>
+      <div className="space-y-5">{children}</div>
     </div>
   );
 }
@@ -404,7 +456,8 @@ function EfficiencyField({
   placeholder,
   suffix,
   isAuto,
-  presetName,
+  autoSource,
+  autoModeLabel,
   onChange,
   onEdit,
 }: {
@@ -414,7 +467,8 @@ function EfficiencyField({
   placeholder: string;
   suffix: string;
   isAuto: boolean;
-  presetName?: string;
+  autoSource?: string;
+  autoModeLabel?: string;
   onChange: (value: string) => void;
   onEdit: () => void;
 }) {
@@ -446,9 +500,10 @@ function EfficiencyField({
           {suffix}
         </span>
       </div>
-      {isAuto && presetName && (
+      {isAuto && autoSource && (
         <p className="mt-2 text-xs text-slate-500">
-          Autofilled from {presetName}.{' '}
+          Autofilled from FuelEconomy.gov
+          {autoModeLabel ? ` (${autoModeLabel})` : ''} for {autoSource}.{' '}
           <button
             type="button"
             onClick={onEdit}
@@ -500,5 +555,27 @@ function LabeledInput({
       </div>
     </div>
   );
+}
+
+function getAvailableModesForSelection(selection: VehicleSelectionSummary | null): EfficiencyMode[] {
+  if (!selection) return [];
+  return EFFICIENCY_MODES.filter((mode) => isValidEfficiencyValue(selection.efficiencies[mode]));
+}
+
+function resolvePreferredMode(
+  selection: VehicleSelectionSummary,
+  preferred: EfficiencyMode
+): EfficiencyMode {
+  const order: EfficiencyMode[] = [preferred, ...EFFICIENCY_MODES];
+  for (const mode of order) {
+    if (isValidEfficiencyValue(selection.efficiencies[mode])) {
+      return mode;
+    }
+  }
+  return preferred;
+}
+
+function isValidEfficiencyValue(value?: number | null) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
 }
 
