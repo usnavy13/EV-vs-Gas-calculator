@@ -10,7 +10,6 @@ import {
 import { calculateAllScenarios, formatCurrency } from '@/lib/calculations';
 import InputSection from '@/components/InputSection';
 import SummaryDashboard from '@/components/SummaryDashboard';
-import DistanceScenarios from '@/components/DistanceScenarios';
 import BreakEvenExplorer from '@/components/BreakEvenExplorer';
 import HowItWorks from '@/components/HowItWorks';
 
@@ -19,8 +18,8 @@ const defaultInputs: CalculatorInputs = {
   gasEfficiency: 25,
   regularGasPrice: 3.5,
   premiumGasPrice: 4.0,
-  homeElectricityPrice: 0.12,
-  fastChargingPrice: 0.4,
+  homeElectricityPrice: 0.15,
+  fastChargingPrice: 0.5,
   baseDistance: 30,
 };
 
@@ -97,27 +96,99 @@ export default function Home() {
   return (
     <main className="relative min-h-screen overflow-hidden px-4 py-12 sm:px-6 lg:px-10">
       <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-10 lg:gap-14">
-        <section className="mx-auto max-w-4xl text-center text-white">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/60">
-            EV vs Gas calculator
-          </p>
-          <h1 className="mt-4 text-4xl font-semibold leading-tight text-white sm:text-[3.1rem] sm:leading-[1.1]">
-            See what electric driving really costs
-          </h1>
-          <p className="mt-4 text-base text-white/70 sm:text-lg">
-            Adjust driving distance, energy prices, and vehicle efficiency to
-            compare EV home charging, fast charging, and gas fill-ups side by
-            side.
-          </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3 text-sm text-white/80">
-            <span className="badge-label border-white/30 bg-white/10 text-white/80">
-              <span className="h-2 w-2 rounded-full bg-emerald-300" />
-              Local price lookup
-            </span>
-            <span className="badge-label border-white/30 bg-white/10 text-white/80">
-              <span className="h-2 w-2 rounded-full bg-sky-300" />
-              Daily to yearly scenarios
-            </span>
+        <section className="mx-auto max-w-6xl text-white">
+          <div className="grid gap-8 lg:grid-cols-[1fr,1fr] lg:items-center">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/60">
+                EV vs Gas calculator
+              </p>
+              <h1 className="mt-4 text-4xl font-semibold leading-tight text-white sm:text-[3.1rem] sm:leading-[1.1]">
+                See what electric driving really costs
+              </h1>
+              <p className="mt-4 text-base text-white/70 sm:text-lg">
+                Adjust driving distance, energy prices, and vehicle efficiency to
+                compare EV home charging, fast charging, and gas fill-ups side by
+                side.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3 text-sm text-white/80">
+                <span className="badge-label border-white/30 bg-white/10 text-white/80">
+                  <span className="h-2 w-2 rounded-full bg-emerald-300" />
+                  Local price lookup
+                </span>
+                <span className="badge-label border-white/30 bg-white/10 text-white/80">
+                  <span className="h-2 w-2 rounded-full bg-sky-300" />
+                  Daily to yearly scenarios
+                </span>
+              </div>
+            </div>
+            
+            <div className="relative flex h-full flex-col rounded-[30px] border border-white/20 bg-white/10 p-6 shadow-inner shadow-black/25 backdrop-blur">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold text-white/70">
+                  Lowest yearly cost
+                </p>
+                <p className="text-lg font-semibold text-white">
+                  {bestOption.label}
+                </p>
+              </div>
+              <span className="badge-label border-white/30 bg-white/5 text-white/80">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                Based on current inputs
+              </span>
+            </div>
+            <div className="mt-6 space-y-4">
+              {yearlyComparisons.map((option) => {
+                const width = (option.value / worstOption.value) * 100;
+                return (
+                  <div key={option.label} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-white/80">
+                        {option.label}
+                      </span>
+                      <span className="font-semibold">
+                        {formatCurrency(option.value)}
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-white/15">
+                      <div
+                        className={`h-full rounded-full bg-gradient-to-r ${option.tone}`}
+                        style={{ width: `${width}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-auto space-y-2 rounded-2xl border border-white/15 bg-black/30 p-4 text-white shadow-[0_20px_60px_rgba(2,2,2,0.55)]">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-white/70">
+                  Gap vs
+                </p>
+                <select
+                  className="rounded-full border border-white/20 bg-slate-800 px-3 py-1 text-xs font-medium text-white"
+                  value={gapBaseline}
+                  onChange={(event) =>
+                    setGapBaseline(event.target.value as CostOptionKey)
+                  }
+                >
+                  {yearlyComparisons.map((option) => (
+                    <option key={option.key} value={option.key} className="bg-slate-800 text-white">
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-3xl font-semibold">
+                {formatCurrency(Math.abs(annualGap))}
+              </p>
+              <p className="text-sm text-white/70">
+                Difference between {bestOption.label} and{' '}
+                {selectedGapBaseline.label} at{' '}
+                {results.yearly.distance.toLocaleString()} mi/yr.
+              </p>
+            </div>
+            </div>
           </div>
         </section>
 
@@ -125,85 +196,16 @@ export default function Home() {
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute inset-x-16 -bottom-16 h-48 rounded-full bg-indigo-500/20 blur-[140px]" />
           </div>
-          <div className="relative grid gap-8 lg:grid-cols-[1.15fr,0.85fr] lg:items-start">
-            <div className="order-2 lg:order-1">
-              <InputSection
-                inputs={inputs}
-                onChange={setInputs}
-                usageScale={usageScale}
-                onUsageScaleChange={setUsageScale}
-                displayDistance={displayDistance}
-                onDistanceChange={handleDistanceChange}
-                onResetInputs={handleResetInputs}
-              />
-            </div>
-            <div className="order-1 relative flex h-full flex-col rounded-[30px] border border-white/20 bg-white/10 p-6 shadow-inner shadow-black/25 backdrop-blur lg:order-2">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold text-white/70">
-                    Lowest yearly cost
-                  </p>
-                  <p className="text-lg font-semibold text-white">
-                    {bestOption.label}
-                  </p>
-                </div>
-                <span className="badge-label border-white/30 bg-white/5 text-white/80">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                  Based on current inputs
-                </span>
-              </div>
-              <div className="mt-6 space-y-4">
-                {yearlyComparisons.map((option) => {
-                  const width = (option.value / worstOption.value) * 100;
-                  return (
-                    <div key={option.label} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-medium text-white/80">
-                          {option.label}
-                        </span>
-                        <span className="font-semibold">
-                          {formatCurrency(option.value)}
-                        </span>
-                      </div>
-                      <div className="h-2 rounded-full bg-white/15">
-                        <div
-                          className={`h-full rounded-full bg-gradient-to-r ${option.tone}`}
-                          style={{ width: `${width}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-auto space-y-2 rounded-2xl border border-white/15 bg-black/30 p-4 text-white shadow-[0_20px_60px_rgba(2,2,2,0.55)]">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold text-white/70">
-                    Gap vs
-                  </p>
-                  <select
-                    className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/90"
-                    value={gapBaseline}
-                    onChange={(event) =>
-                      setGapBaseline(event.target.value as CostOptionKey)
-                    }
-                  >
-                    {yearlyComparisons.map((option) => (
-                      <option key={option.key} value={option.key}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <p className="text-3xl font-semibold">
-                  {formatCurrency(Math.abs(annualGap))}
-                </p>
-                <p className="text-sm text-white/70">
-                  Difference between {bestOption.label} and{' '}
-                  {selectedGapBaseline.label} at{' '}
-                  {results.yearly.distance.toLocaleString()} mi/yr.
-                </p>
-              </div>
-            </div>
+          <div className="relative">
+            <InputSection
+              inputs={inputs}
+              onChange={setInputs}
+              usageScale={usageScale}
+              onUsageScaleChange={setUsageScale}
+              displayDistance={displayDistance}
+              onDistanceChange={handleDistanceChange}
+              onResetInputs={handleResetInputs}
+            />
           </div>
         </section>
 
@@ -217,7 +219,6 @@ export default function Home() {
         />
 
         <BreakEvenExplorer inputs={inputs} />
-        <DistanceScenarios results={results} />
         <HowItWorks />
 
         <footer className="rounded-[26px] border border-slate-200/70 bg-white/60 px-6 py-6 text-center text-sm text-slate-500 shadow-lg shadow-slate-900/5">

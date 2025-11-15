@@ -276,7 +276,7 @@ export default function InputSection({
                   parseFloat(value) || 0
                 )
               }
-              placeholder="0.12"
+              placeholder="0.18"
             />
             <LabeledInput
               label="Fast charging rate"
@@ -287,7 +287,7 @@ export default function InputSection({
               onChange={(value) =>
                 handleChange('fastChargingPrice', parseFloat(value) || 0)
               }
-              placeholder="0.40"
+              placeholder="0.50"
             />
             <LabeledInput
               label="Gas (regular)"
@@ -298,7 +298,7 @@ export default function InputSection({
               onChange={(value) =>
                 handleChange('regularGasPrice', parseFloat(value) || 0)
               }
-              placeholder="3.50"
+              placeholder="3.09"
             />
             <LabeledInput
               label="Gas (premium)"
@@ -309,7 +309,7 @@ export default function InputSection({
               onChange={(value) =>
                 handleChange('premiumGasPrice', parseFloat(value) || 0)
               }
-              placeholder="4.00"
+              placeholder="3.94"
             />
           </div>
           <div className="mt-6">
@@ -489,7 +489,7 @@ function LabeledInput({
         <input
           type="number"
           step={step}
-          value={value}
+          value={value.toFixed(2)}
           onChange={(event) => onChange(event.target.value)}
           className="form-input-shell pr-20"
           placeholder={placeholder}

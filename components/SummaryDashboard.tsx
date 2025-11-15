@@ -9,6 +9,7 @@ import {
   ScenarioResult,
 } from '@/types';
 import { formatCurrency } from '@/lib/calculations';
+import ResultsDisplay from './ResultsDisplay';
 
 interface SummaryDashboardProps {
   results: CalculationResults;
@@ -169,10 +170,10 @@ export default function SummaryDashboard({
               onChange={(event) =>
                 onGapBaselineChange(event.target.value as CostOptionKey)
               }
-              className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900"
             >
               {optionRows.map((option) => (
-                <option key={option.key} value={option.key}>
+                <option key={option.key} value={option.key} className="bg-white text-slate-900">
                   {option.label}
                 </option>
               ))}
@@ -287,6 +288,27 @@ export default function SummaryDashboard({
             </div>
           );
         })}
+      </div>
+
+      <div className="mt-10">
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-slate-500">Scenarios</p>
+            <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+              {usageScale === 'daily' ? 'Daily' : usageScale === 'weekly' ? 'Weekly' : usageScale === 'monthly' ? 'Monthly' : 'Yearly'} comparison
+            </h2>
+            <p className="text-sm text-slate-500">
+              Showing costs for {scenario.distance.toLocaleString()} miles {scaleLabels[usageScale]}.
+            </p>
+          </div>
+          <span className="rounded-full bg-slate-900/5 px-3 py-1 text-xs font-semibold text-slate-600">
+            Based on selected timeframe
+          </span>
+        </div>
+
+        <div className="space-y-5">
+          <ResultsDisplay scenario={scenario} scenarioName={usageScale === 'daily' ? 'Daily' : usageScale === 'weekly' ? 'Weekly' : usageScale === 'monthly' ? 'Monthly' : 'Yearly'} />
+        </div>
       </div>
     </section>
   );
