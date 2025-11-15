@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   FuelEconomyMenuItem,
   FuelEconomyVehicleDetails,
@@ -30,6 +30,13 @@ export interface VehicleSelectionSummary {
   source: string;
 }
 
+interface VehicleDefaultSelection {
+  year: string;
+  make: string;
+  model: string;
+  optionId: string;
+}
+
 interface FuelEconomyVehicleSelectProps {
   label: string;
   kind: 'ev' | 'gas';
@@ -38,6 +45,7 @@ interface FuelEconomyVehicleSelectProps {
   ratingMode?: EfficiencyMode;
   availableModes?: EfficiencyMode[];
   onRatingModeChange?: (mode: EfficiencyMode) => void;
+  defaultSelection?: VehicleDefaultSelection;
 }
 
 export default function FuelEconomyVehicleSelect({
@@ -48,6 +56,7 @@ export default function FuelEconomyVehicleSelect({
   ratingMode,
   availableModes,
   onRatingModeChange,
+  defaultSelection,
 }: FuelEconomyVehicleSelectProps) {
   const [yearOptions, setYearOptions] = useState<FuelEconomyMenuItem[]>([]);
   const [makeOptions, setMakeOptions] = useState<FuelEconomyMenuItem[]>([]);
@@ -67,6 +76,12 @@ export default function FuelEconomyVehicleSelect({
 
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const defaultsAppliedRef = useRef(false);
+  const onResolvedRef = useRef(onVehicleResolved);
+
+  useEffect(() => {
+    onResolvedRef.current = onVehicleResolved;
+  }, [onVehicleResolved]);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +108,91 @@ export default function FuelEconomyVehicleSelect({
       cancelled = true;
     };
   }, []);
+
+useEffect(() => {
+  if (!defaultSelection || defaultsAppliedRef.current) return;
+  let cancelled = false;
+
+  const applyDefaults = async () => {
+    defaultsAppliedRef.current = true;
+
+    try {
+      setSelectedYear(defaultSelection.year);
+      setIsLoadingMakes(true);
+      setStatusMessage('Loading makes…');
+      const makes = await getVehicleMakes(defaultSelection.year);
+      if (cancelled) return;
+      setMakeOptions(makes);
+      setSelectedMake(defaultSelection.make);
+    } catch (error) {
+      console.error('Default make load failed', error);
+    } finally {
+      if (!cancelled) {
+        setIsLoadingMakes(false);
+        setStatusMessage(null);
+      }
+    }
+
+    try {
+      setIsLoadingModels(true);
+      setStatusMessage('Loading models…');
+      const models = await getVehicleModels(defaultSelection.year, defaultSelection.make);
+      if (cancelled) return;
+      setModelOptions(models);
+      setSelectedModel(defaultSelection.model);
+    } catch (error) {
+      console.error('Default model load failed', error);
+    } finally {
+      if (!cancelled) {
+        setIsLoadingModels(false);
+        setStatusMessage(null);
+      }
+    }
+
+    try {
+      setIsLoadingOptions(true);
+      setStatusMessage('Loading trims…');
+      const options = await getVehicleOptions(
+        defaultSelection.year,
+        defaultSelection.make,
+        defaultSelection.model
+      );
+      if (cancelled) return;
+      setOptionItems(options);
+      setSelectedOption(defaultSelection.optionId);
+    } catch (error) {
+      console.error('Default option load failed', error);
+    } finally {
+      if (!cancelled) {
+        setIsLoadingOptions(false);
+        setStatusMessage(null);
+      }
+    }
+
+    try {
+      setIsFetchingVehicle(true);
+      setStatusMessage('Fetching EPA data…');
+      const details = await getVehicleDetails(defaultSelection.optionId);
+      if (cancelled) return;
+      const selection = buildSelection(details, kind);
+      onResolvedRef.current(selection);
+      setStatusMessage(null);
+    } catch (error) {
+      console.error('Default vehicle lookup failed', error);
+    } finally {
+      if (!cancelled) {
+        setIsFetchingVehicle(false);
+        setStatusMessage(null);
+      }
+    }
+  };
+
+  applyDefaults();
+
+  return () => {
+    cancelled = true;
+  };
+}, [defaultSelection, kind]);
 
   const resetSelections = (level: 'year' | 'make' | 'model') => {
     if (level === 'year') {

@@ -33,6 +33,20 @@ const MODE_LABELS: Record<EfficiencyMode, string> = {
   highway: 'Highway',
 };
 
+const DEFAULT_EV_SELECTION = {
+  year: '2025',
+  make: 'Tesla',
+  model: 'Model Y Long Range RWD',
+  optionId: '48771',
+};
+
+const DEFAULT_GAS_SELECTION = {
+  year: '2025',
+  make: 'Toyota',
+  model: 'RAV4 Hybrid AWD',
+  optionId: '48937',
+};
+
 export default function InputSection({
   inputs,
   onChange,
@@ -261,6 +275,7 @@ export default function InputSection({
                 ratingMode={evRatingMode}
                 availableModes={getAvailableModesForSelection(selectedEV)}
                 onRatingModeChange={(mode) => handleRatingModeChange('ev', mode)}
+                defaultSelection={DEFAULT_EV_SELECTION}
                 onVehicleResolved={(selection) => handleVehicleSelection('ev', selection)}
               />
               <FuelEconomyVehicleSelect
@@ -271,6 +286,7 @@ export default function InputSection({
                 ratingMode={gasRatingMode}
                 availableModes={getAvailableModesForSelection(selectedGas)}
                 onRatingModeChange={(mode) => handleRatingModeChange('gas', mode)}
+                defaultSelection={DEFAULT_GAS_SELECTION}
                 onVehicleResolved={(selection) => handleVehicleSelection('gas', selection)}
               />
             </div>
