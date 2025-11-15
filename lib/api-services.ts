@@ -9,17 +9,6 @@ export interface ElectricityRateData {
   source?: string;
 }
 
-export interface FastChargerData {
-  price: number;
-  source?: string;
-  stationCount?: number;
-  nearestStation?: {
-    name: string;
-    address: string;
-    distance: string;
-  };
-}
-
 /**
  * Fetch gas prices by ZIP code
  * Uses multiple free APIs as fallback
@@ -67,34 +56,6 @@ export async function fetchElectricityRatesByZip(zipCode: string): Promise<Elect
 export function validateZipCode(zipCode: string): boolean {
   const zipRegex = /^\d{5}(-\d{4})?$/;
   return zipRegex.test(zipCode);
-}
-
-/**
- * Fetch fast charger pricing by ZIP code or coordinates
- */
-export async function fetchFastChargerPrice(zipCode?: string, latitude?: number, longitude?: number): Promise<FastChargerData | null> {
-  try {
-    let url = '/api/ev-chargers?';
-    if (zipCode) {
-      url += `zip=${zipCode}`;
-    } else if (latitude !== undefined && longitude !== undefined) {
-      url += `lat=${latitude}&lon=${longitude}`;
-    } else {
-      return null;
-    }
-
-    const response = await fetch(url);
-    
-    if (response.ok) {
-      const data = await response.json();
-      return data;
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Error fetching fast charger prices:', error);
-    return null;
-  }
 }
 
 /**

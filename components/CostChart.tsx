@@ -20,7 +20,7 @@ interface CostChartProps {
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
+      <div className="rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-lg shadow-slate-900/10">
         {payload.map((entry: any, index: number) => (
           <p key={index} className="text-sm" style={{ color: entry.color }}>
             {`${entry.name}: ${formatCurrency(entry.value)}`}
@@ -33,7 +33,6 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export default function CostChart({ results }: CostChartProps) {
-  // Show cost progression over time periods
   const chartData = [
     {
       period: 'Daily',
@@ -66,76 +65,88 @@ export default function CostChart({ results }: CostChartProps) {
   ];
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-        Cost Comparison Chart
-      </h2>
-      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-        See how costs accumulate over time for each vehicle/charging option
-      </p>
-      <ResponsiveContainer width="100%" height={500}>
-        <LineChart
-          data={chartData}
-          margin={{
-            top: 20,
-            right: 30,
-            left: 20,
-            bottom: 20,
-          }}
-        >
-          <CartesianGrid strokeDasharray="3 3" className="stroke-gray-300 dark:stroke-gray-700" />
-          <XAxis 
-            dataKey="period" 
-            className="text-gray-700 dark:text-gray-300"
-            tick={{ fill: 'currentColor' }}
-          />
-          <YAxis 
-            className="text-gray-700 dark:text-gray-300"
-            tick={{ fill: 'currentColor' }}
-            tickFormatter={(value) => {
-              if (value >= 1000) return `$${(value / 1000).toFixed(1)}k`;
-              return `$${value.toFixed(0)}`;
+    <section className="card-surface bg-white/95 p-6 sm:p-8">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-slate-500">Chart</p>
+          <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+            How each option grows over time
+          </h2>
+          <p className="text-sm text-slate-500">
+            The lines show daily, weekly, monthly, and yearly totals using the same inputs.
+          </p>
+        </div>
+        <span className="rounded-full bg-slate-900/5 px-3 py-1 text-xs font-semibold text-slate-600">
+          Hover for values
+        </span>
+      </div>
+
+      <div className="rounded-[26px] border border-slate-100 bg-slate-50/60 p-4">
+        <ResponsiveContainer width="100%" height={420}>
+          <LineChart
+            data={chartData}
+            margin={{
+              top: 10,
+              right: 30,
+              left: 10,
+              bottom: 10,
             }}
-            scale="log"
-            domain={['auto', 'auto']}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Legend />
-          <Line 
-            type="monotone" 
-            dataKey="EV (Home)" 
-            stroke="#10b981" 
-            strokeWidth={3}
-            dot={{ r: 5 }}
-            activeDot={{ r: 7 }}
-          />
-          <Line 
-            type="monotone" 
-            dataKey="EV (Fast)" 
-            stroke="#3b82f6" 
-            strokeWidth={3}
-            dot={{ r: 5 }}
-            activeDot={{ r: 7 }}
-          />
-          <Line 
-            type="monotone" 
-            dataKey="Gas (Regular)" 
-            stroke="#f97316" 
-            strokeWidth={3}
-            dot={{ r: 5 }}
-            activeDot={{ r: 7 }}
-          />
-          <Line 
-            type="monotone" 
-            dataKey="Gas (Premium)" 
-            stroke="#ef4444" 
-            strokeWidth={3}
-            dot={{ r: 5 }}
-            activeDot={{ r: 7 }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis
+              dataKey="period"
+              tick={{ fill: '#475569', fontSize: 12, fontWeight: 500 }}
+              tickLine={false}
+              axisLine={{ stroke: '#cbd5f5' }}
+            />
+            <YAxis
+              tick={{ fill: '#475569', fontSize: 12, fontWeight: 500 }}
+              tickFormatter={(value) => {
+                if (value >= 1000) return `$${(value / 1000).toFixed(1)}k`;
+                return `$${value.toFixed(0)}`;
+              }}
+              axisLine={false}
+              tickLine={false}
+              width={80}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend />
+            <Line
+              type="monotone"
+              dataKey="EV (Home)"
+              stroke="#10b981"
+              strokeWidth={3}
+              dot={{ r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="EV (Fast)"
+              stroke="#6366f1"
+              strokeWidth={3}
+              dot={{ r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="Gas (Regular)"
+              stroke="#f97316"
+              strokeWidth={3}
+              dot={{ r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="Gas (Premium)"
+              stroke="#ef4444"
+              strokeWidth={3}
+              dot={{ r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
   );
 }
 

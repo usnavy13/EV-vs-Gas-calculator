@@ -1,3 +1,7 @@
+export type UsageScale = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+export type CostOptionKey = 'evHome' | 'evFast' | 'gasRegular' | 'gasPremium';
+
 export interface CalculatorInputs {
   evEfficiency: number; // mi/kWh
   gasEfficiency: number; // mpg
@@ -5,7 +9,7 @@ export interface CalculatorInputs {
   premiumGasPrice: number; // $/gallon
   homeElectricityPrice: number; // $/kWh
   fastChargingPrice: number; // $/kWh
-  baseDistance: number; // miles
+  baseDistance: number; // miles per day
 }
 
 export interface CostBreakdown {

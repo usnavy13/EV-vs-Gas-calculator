@@ -1,386 +1,235 @@
 'use client';
 
 import { useState } from 'react';
-import { fetchGasPricesByZip, fetchElectricityRatesByZip, fetchFastChargerPrice, validateZipCode, reverseGeocode } from '@/lib/api-services';
+import {
+  fetchGasPricesByZip,
+  fetchElectricityRatesByZip,
+  validateZipCode,
+  reverseGeocode,
+} from '@/lib/api-services';
 import { CalculatorInputs } from '@/types';
 
 interface PriceLookupProps {
-  inputs: CalculatorInputs;
   onUpdate: (updates: Partial<CalculatorInputs>) => void;
 }
 
-export default function PriceLookup({ inputs, onUpdate }: PriceLookupProps) {
+type LookupStatus = 'idle' | 'loading' | 'success' | 'error';
+
+export default function PriceLookup({ onUpdate }: PriceLookupProps) {
   const [zipCode, setZipCode] = useState('');
-  const [loadingGas, setLoadingGas] = useState(false);
-  const [loadingElectricity, setLoadingElectricity] = useState(false);
-  const [loadingFastCharger, setLoadingFastCharger] = useState(false);
-  const [loadingLocation, setLoadingLocation] = useState(false);
-  const [gasError, setGasError] = useState<string | null>(null);
-  const [electricityError, setElectricityError] = useState<string | null>(null);
-  const [fastChargerError, setFastChargerError] = useState<string | null>(null);
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const [gasSource, setGasSource] = useState<string | null>(null);
-  const [electricitySource, setElectricitySource] = useState<string | null>(null);
-  const [fastChargerSource, setFastChargerSource] = useState<string | null>(null);
-  const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
+  const [includeElectricity, setIncludeElectricity] = useState(true);
+  const [includeGas, setIncludeGas] = useState(true);
+  const [status, setStatus] = useState<LookupStatus>('idle');
+  const [message, setMessage] = useState<string | null>(null);
+  const [sourceNotes, setSourceNotes] = useState<string[]>([]);
+  const [isLocating, setIsLocating] = useState(false);
 
-  const handleLookupGas = async () => {
-    if (!zipCode.trim()) {
-      setGasError('Please enter a ZIP code');
+  const isFetching = status === 'loading';
+
+  const handleLookup = async () => {
+    const trimmedZip = zipCode.trim();
+    setMessage(null);
+
+    if (!trimmedZip) {
+      setStatus('error');
+      setMessage('Please enter a ZIP code.');
       return;
     }
 
-    if (!validateZipCode(zipCode.trim())) {
-      setGasError('Invalid ZIP code format (use 5 digits or 5+4 format)');
+    if (!validateZipCode(trimmedZip)) {
+      setStatus('error');
+      setMessage('Invalid ZIP format. Use 5 digits or 5+4.');
       return;
     }
 
-    await handleLookupGasWithZip(zipCode.trim());
-  };
-
-  const handleLookupElectricity = async () => {
-    if (!zipCode.trim()) {
-      setElectricityError('Please enter a ZIP code');
+    if (!includeElectricity && !includeGas) {
+      setStatus('error');
+      setMessage('Select at least one data type.');
       return;
     }
 
-    if (!validateZipCode(zipCode.trim())) {
-      setElectricityError('Invalid ZIP code format (use 5 digits or 5+4 format)');
-      return;
-    }
+    setStatus('loading');
+    setSourceNotes([]);
 
-    setLoadingElectricity(true);
-    setElectricityError(null);
-    setElectricitySource(null);
+    const updates: Partial<CalculatorInputs> = {};
+    const sources: string[] = [];
 
     try {
-      const data = await fetchElectricityRatesByZip(zipCode.trim());
-      
-      if (data) {
-        onUpdate({
-          homeElectricityPrice: data.residential,
-        });
-        setElectricitySource(data.source || 'API');
+      if (includeElectricity) {
+        const data = await fetchElectricityRatesByZip(trimmedZip);
+        if (data) {
+          updates.homeElectricityPrice = data.residential;
+          sources.push(`Electricity · ${data.source || 'API'}`);
+        }
+      }
+
+      if (includeGas) {
+        const data = await fetchGasPricesByZip(trimmedZip);
+        if (data) {
+          updates.regularGasPrice = data.regular;
+          updates.premiumGasPrice = data.premium;
+          sources.push(`Gas · ${data.source || 'API'}`);
+        }
+      }
+
+      if (Object.keys(updates).length) {
+        onUpdate(updates);
+        setStatus('success');
+        setMessage('Updated from latest data sources.');
+        setSourceNotes(sources);
       } else {
-        setElectricityError('Unable to fetch electricity rates. Please enter manually.');
+        setStatus('error');
+        setMessage('No data returned. Try another ZIP or enter manually.');
       }
     } catch (error) {
-      setElectricityError('Error fetching electricity rates. Please try again or enter manually.');
-    } finally {
-      setLoadingElectricity(false);
+      setStatus('error');
+      setMessage('Lookup failed. Please try again or enter manually.');
     }
   };
 
-  const handleLookupFastCharger = async () => {
-    if (!zipCode.trim()) {
-      setFastChargerError('Please enter a ZIP code');
-      return;
-    }
-
-    if (!validateZipCode(zipCode.trim())) {
-      setFastChargerError('Invalid ZIP code format (use 5 digits or 5+4 format)');
-      return;
-    }
-
-    await handleLookupFastChargerWithZip(zipCode.trim());
-  };
-
-  const handleUseLocation = async () => {
-    console.log('[Geolocation] Starting location request...');
-    console.log('[Geolocation] navigator.geolocation available:', !!navigator.geolocation);
-    console.log('[Geolocation] Browser:', navigator.userAgent);
-    
+  const handleUseLocation = () => {
     if (!navigator.geolocation) {
-      console.error('[Geolocation] Geolocation API not supported');
-      setLocationError('Geolocation is not supported by your browser');
-      setLocationPermissionDenied(true);
+      setStatus('error');
+      setMessage('Geolocation not supported in this browser.');
       return;
     }
 
-    setLoadingLocation(true);
-    setLocationError(null);
-    setLocationPermissionDenied(false);
-
-    const geolocationOptions = {
-      enableHighAccuracy: false,
-      timeout: 10000,
-      maximumAge: 300000, // Cache for 5 minutes
-    };
-    
-    console.log('[Geolocation] Options:', geolocationOptions);
-    console.log('[Geolocation] Calling getCurrentPosition...');
+    setIsLocating(true);
+    setStatus('idle');
+    setMessage('Detecting your location…');
 
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        console.log('[Geolocation] Position received successfully');
-        console.log('[Geolocation] Position details:', {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          altitude: position.coords.altitude,
-          altitudeAccuracy: position.coords.altitudeAccuracy,
-          heading: position.coords.heading,
-          speed: position.coords.speed,
-          timestamp: position.timestamp,
-        });
-        
+      async ({ coords }) => {
         try {
-          const { latitude, longitude } = position.coords;
-          console.log('[Geolocation] Starting reverse geocoding for:', { latitude, longitude });
-          
-          const zip = await reverseGeocode(latitude, longitude);
-          console.log('[Geolocation] Reverse geocoding result:', zip);
-          
+          const zip = await reverseGeocode(coords.latitude, coords.longitude);
           if (zip) {
-            console.log('[Geolocation] ZIP code found:', zip);
             setZipCode(zip);
-            // Automatically fetch prices for the detected location
-            console.log('[Geolocation] Fetching prices for ZIP:', zip);
-            await Promise.all([
-              handleLookupGasWithZip(zip),
-              handleLookupElectricityWithZip(zip),
-              handleLookupFastChargerWithZip(zip),
-            ]);
-            console.log('[Geolocation] Price fetching completed');
+            setMessage('Location detected. Press look up to fetch prices.');
           } else {
-            console.error('[Geolocation] ZIP code not found from reverse geocoding');
-            setLocationError('Could not determine ZIP code from your location. Please enter manually.');
-            setLocationPermissionDenied(true);
+            setStatus('error');
+            setMessage('Could not find a ZIP for your location.');
           }
         } catch (error) {
-          console.error('[Geolocation] Error processing location:', error);
-          if (error instanceof Error) {
-            console.error('[Geolocation] Error message:', error.message);
-            console.error('[Geolocation] Error stack:', error.stack);
-          }
-          setLocationError('Error processing your location. Please enter ZIP code manually.');
-          setLocationPermissionDenied(true);
+          setStatus('error');
+          setMessage('Location lookup failed. Please enter ZIP manually.');
         } finally {
-          setLoadingLocation(false);
-          console.log('[Geolocation] Location request completed');
+          setIsLocating(false);
         }
       },
-      (error) => {
-        console.error('[Geolocation] Error getting position');
-        console.error('[Geolocation] Error code:', error.code);
-        console.error('[Geolocation] Error message:', error.message);
-        console.error('[Geolocation] Full error object:', error);
-        
-        setLoadingLocation(false);
-        setLocationPermissionDenied(true);
-        
-        let errorMessage = '';
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            console.error('[Geolocation] PERMISSION_DENIED - User denied location access');
-            errorMessage = 'Location access denied. Please enter your ZIP code manually.';
-            break;
-          case error.POSITION_UNAVAILABLE:
-            console.error('[Geolocation] POSITION_UNAVAILABLE - Location information unavailable');
-            console.error('[Geolocation] This could be due to:');
-            console.error('[Geolocation] - GPS disabled');
-            console.error('[Geolocation] - Network location unavailable');
-            console.error('[Geolocation] - Device location services disabled');
-            errorMessage = 'Location information unavailable. Please enter your ZIP code manually.';
-            break;
-          case error.TIMEOUT:
-            console.error('[Geolocation] TIMEOUT - Location request timed out');
-            errorMessage = 'Location request timed out. Please enter your ZIP code manually.';
-            break;
-          default:
-            console.error('[Geolocation] Unknown error code:', error.code);
-            errorMessage = 'Error getting location. Please enter your ZIP code manually.';
-            break;
-        }
-        
-        setLocationError(errorMessage);
-        console.log('[Geolocation] Error handling completed');
-      },
-      geolocationOptions
+      () => {
+        setIsLocating(false);
+        setStatus('error');
+        setMessage('Location permission denied.');
+      }
     );
   };
 
-  const handleLookupGasWithZip = async (zip: string) => {
-    setLoadingGas(true);
-    setGasError(null);
-    setGasSource(null);
-
-    try {
-      const data = await fetchGasPricesByZip(zip);
-      
-      if (data) {
-        onUpdate({
-          regularGasPrice: data.regular,
-          premiumGasPrice: data.premium,
-        });
-        setGasSource(data.source || 'API');
-      } else {
-        setGasError('Unable to fetch gas prices. Please enter manually.');
-      }
-    } catch (error) {
-      setGasError('Error fetching gas prices. Please try again or enter manually.');
-    } finally {
-      setLoadingGas(false);
-    }
-  };
-
-  const handleLookupElectricityWithZip = async (zip: string) => {
-    setLoadingElectricity(true);
-    setElectricityError(null);
-    setElectricitySource(null);
-
-    try {
-      const data = await fetchElectricityRatesByZip(zip);
-      
-      if (data) {
-        onUpdate({
-          homeElectricityPrice: data.residential,
-        });
-        setElectricitySource(data.source || 'API');
-      } else {
-        setElectricityError('Unable to fetch electricity rates. Please enter manually.');
-      }
-    } catch (error) {
-      setElectricityError('Error fetching electricity rates. Please try again or enter manually.');
-    } finally {
-      setLoadingElectricity(false);
-    }
-  };
-
-  const handleLookupFastChargerWithZip = async (zip: string) => {
-    setLoadingFastCharger(true);
-    setFastChargerError(null);
-    setFastChargerSource(null);
-
-    try {
-      const data = await fetchFastChargerPrice(zip);
-      
-      if (data) {
-        onUpdate({
-          fastChargingPrice: data.price,
-        });
-        setFastChargerSource(data.source || 'API');
-      } else {
-        setFastChargerError('Unable to fetch fast charger prices. Please enter manually.');
-      }
-    } catch (error) {
-      setFastChargerError('Error fetching fast charger prices. Please try again or enter manually.');
-    } finally {
-      setLoadingFastCharger(false);
-    }
+  const handleReset = () => {
+    setZipCode('');
+    setStatus('idle');
+    setMessage(null);
+    setSourceNotes([]);
+    setIncludeElectricity(true);
+    setIncludeGas(true);
   };
 
   return (
-    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 mb-6">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        Lookup Local Prices
-      </h3>
-      
-      <div className="space-y-4">
-        {/* Location Button */}
+    <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-5">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <button
-            onClick={handleUseLocation}
-            disabled={loadingLocation}
-            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-md font-medium transition-colors flex items-center justify-center gap-2"
-          >
-            {loadingLocation ? (
-              <>
-                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Getting location...
-              </>
-            ) : (
-              <>
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Use My Location
-              </>
-            )}
-          </button>
-          {locationError && (
-            <p className="text-xs text-red-600 dark:text-red-400 mt-2">
-              {locationError}
-            </p>
-          )}
+          <h3 className="text-base font-semibold text-slate-900">
+            Look up local prices
+          </h3>
+          <p className="text-sm text-slate-500">
+            Pull regional electricity and gas data with one tap.
+          </p>
         </div>
+        <span className="badge-label">Optional</span>
+      </div>
 
-        {/* ZIP Code Input */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            {locationPermissionDenied ? 'Enter ZIP Code' : 'Or Enter ZIP Code'}
-          </label>
-          <div className="flex gap-2">
+      <div className="mt-4 space-y-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[160px]">
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              ZIP code
+            </label>
             <input
               type="text"
               value={zipCode}
-              onChange={(e) => setZipCode(e.target.value)}
+              onChange={(event) => setZipCode(event.target.value)}
               placeholder="12345"
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              className="mt-2 form-input-shell"
               maxLength={10}
             />
-            <button
-              onClick={handleLookupGas}
-              disabled={loadingGas || !zipCode.trim()}
-              className="px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white rounded-md font-medium transition-colors"
-            >
-              {loadingGas ? 'Loading...' : 'Lookup Gas'}
-            </button>
-            <button
-              onClick={handleLookupElectricity}
-              disabled={loadingElectricity || !zipCode.trim()}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-md font-medium transition-colors"
-            >
-              {loadingElectricity ? 'Loading...' : 'Lookup Electricity'}
-            </button>
-            <button
-              onClick={handleLookupFastCharger}
-              disabled={loadingFastCharger || !zipCode.trim()}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-md font-medium transition-colors"
-            >
-              {loadingFastCharger ? 'Loading...' : 'Lookup Fast Charger'}
-            </button>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {locationPermissionDenied 
-              ? 'Enter your ZIP code to automatically fetch local gas prices, electricity rates, and fast charger prices'
-              : 'You can also manually enter your ZIP code to fetch local prices'}
-          </p>
+          <button
+            type="button"
+            onClick={handleUseLocation}
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isLocating}
+          >
+            {isLocating ? 'Locating…' : 'Use my location'}
+          </button>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500 hover:border-slate-300 hover:bg-white"
+          >
+            Reset
+          </button>
         </div>
 
-        {/* Status Messages */}
-        {gasSource && (
-          <div className="text-sm text-green-600 dark:text-green-400">
-            ✓ Gas prices updated from {gasSource}
-          </div>
-        )}
-        {gasError && (
-          <div className="text-sm text-red-600 dark:text-red-400">
-            {gasError}
-          </div>
-        )}
-        {electricitySource && (
-          <div className="text-sm text-green-600 dark:text-green-400">
-            ✓ Electricity rate updated from {electricitySource}
-          </div>
-        )}
-        {electricityError && (
-          <div className="text-sm text-red-600 dark:text-red-400">
-            {electricityError}
-          </div>
-        )}
-        {fastChargerSource && (
-          <div className="text-sm text-green-600 dark:text-green-400">
-            ✓ Fast charger price updated from {fastChargerSource}
-          </div>
-        )}
-        {fastChargerError && (
-          <div className="text-sm text-red-600 dark:text-red-400">
-            {fastChargerError}
+        <div className="flex flex-wrap gap-4 text-sm text-slate-600">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={includeElectricity}
+              onChange={(event) => setIncludeElectricity(event.target.checked)}
+              className="accent-emerald-500"
+            />
+            Electricity
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={includeGas}
+              onChange={(event) => setIncludeGas(event.target.checked)}
+              className="accent-amber-500"
+            />
+            Gas
+          </label>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleLookup}
+          disabled={isFetching}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+        >
+          {isFetching && (
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+          )}
+          Look up prices
+        </button>
+
+        {message && (
+          <div
+            className={`rounded-2xl px-4 py-3 text-sm ${
+              status === 'success'
+                ? 'bg-emerald-50 text-emerald-700'
+                : status === 'error'
+                  ? 'bg-rose-50 text-rose-700'
+                  : 'bg-slate-100 text-slate-600'
+            }`}
+          >
+            {message}
+            {sourceNotes.length > 0 && (
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-slate-500">
+                {sourceNotes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
       </div>
