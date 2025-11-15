@@ -99,6 +99,20 @@ export function calculateAllScenarios(
 }
 
 /**
+ * Calculate the electricity price (per kWh) where EV charging
+ * reaches parity with a given gas price.
+ */
+export function calculateElectricityParityRate(
+  gasPrice: number,
+  gasEfficiency: number,
+  evEfficiency: number
+): number {
+  if (gasEfficiency <= 0 || evEfficiency <= 0) return 0;
+  const gasCostPerMile = calculateGasCostPerMile(gasEfficiency, gasPrice);
+  return gasCostPerMile * evEfficiency;
+}
+
+/**
  * Format currency value
  */
 export function formatCurrency(value: number): string {

@@ -100,3 +100,21 @@ export async function reverseGeocode(latitude: number, longitude: number): Promi
   }
 }
 
+/**
+ * Fallback lookup using public IP (approximate ZIP)
+ */
+export async function fetchZipFromIp(): Promise<string | null> {
+  try {
+    const response = await fetch('https://ipapi.co/json/');
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json();
+    const postal = data?.postal || data?.zip || data?.postal_code;
+    return postal ? String(postal) : null;
+  } catch (error) {
+    console.error('[IPLookup] Failed to fetch ZIP from IP:', error);
+    return null;
+  }
+}
+

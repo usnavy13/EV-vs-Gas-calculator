@@ -11,7 +11,7 @@ import { calculateAllScenarios, formatCurrency } from '@/lib/calculations';
 import InputSection from '@/components/InputSection';
 import SummaryDashboard from '@/components/SummaryDashboard';
 import DistanceScenarios from '@/components/DistanceScenarios';
-import CostChart from '@/components/CostChart';
+import BreakEvenExplorer from '@/components/BreakEvenExplorer';
 import HowItWorks from '@/components/HowItWorks';
 
 const defaultInputs: CalculatorInputs = {
@@ -216,7 +216,7 @@ export default function Home() {
           onGapBaselineChange={setGapBaseline}
         />
 
-        <CostChart results={results} />
+        <BreakEvenExplorer inputs={inputs} />
         <DistanceScenarios results={results} />
         <HowItWorks />
 

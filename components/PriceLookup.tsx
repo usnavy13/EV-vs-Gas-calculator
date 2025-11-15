@@ -6,6 +6,7 @@ import {
   fetchElectricityRatesByZip,
   validateZipCode,
   reverseGeocode,
+  fetchZipFromIp,
 } from '@/lib/api-services';
 import { CalculatorInputs } from '@/types';
 
@@ -26,6 +27,55 @@ export default function PriceLookup({ onUpdate }: PriceLookupProps) {
 
   const isFetching = status === 'loading';
 
+  const performLookupForZip = async (zip: string) => {
+    if (!includeElectricity && !includeGas) {
+      setStatus('error');
+      setMessage('Select at least one data type.');
+      return false;
+    }
+
+    setStatus('loading');
+    setSourceNotes([]);
+
+    const updates: Partial<CalculatorInputs> = {};
+    const sources: string[] = [];
+
+    try {
+      if (includeElectricity) {
+        const data = await fetchElectricityRatesByZip(zip);
+        if (data) {
+          updates.homeElectricityPrice = data.residential;
+          sources.push(`Electricity · ${data.source || 'API'}`);
+        }
+      }
+
+      if (includeGas) {
+        const data = await fetchGasPricesByZip(zip);
+        if (data) {
+          updates.regularGasPrice = data.regular;
+          updates.premiumGasPrice = data.premium;
+          sources.push(`Gas · ${data.source || 'API'}`);
+        }
+      }
+
+      if (Object.keys(updates).length) {
+        onUpdate(updates);
+        setStatus('success');
+        setMessage('Updated from latest data sources.');
+        setSourceNotes(sources);
+        return true;
+      }
+
+      setStatus('error');
+      setMessage('No data returned. Try another ZIP or enter manually.');
+      return false;
+    } catch (error) {
+      setStatus('error');
+      setMessage('Lookup failed. Please try again or enter manually.');
+      return false;
+    }
+  };
+
   const handleLookup = async () => {
     const trimmedZip = zipCode.trim();
     setMessage(null);
@@ -42,61 +92,34 @@ export default function PriceLookup({ onUpdate }: PriceLookupProps) {
       return;
     }
 
-    if (!includeElectricity && !includeGas) {
+    await performLookupForZip(trimmedZip);
+  };
+
+  const runIpFallback = async (infoMessage?: string) => {
+    setMessage(infoMessage || 'Trying network-based lookup…');
+    const ipZip = await fetchZipFromIp();
+    if (ipZip) {
+      setZipCode(ipZip);
+      setMessage('Using approximate ZIP from your network. Fetching prices…');
+      await performLookupForZip(ipZip);
+    } else {
       setStatus('error');
-      setMessage('Select at least one data type.');
-      return;
+      setMessage('Could not detect your ZIP automatically. Please enter it manually.');
     }
-
-    setStatus('loading');
-    setSourceNotes([]);
-
-    const updates: Partial<CalculatorInputs> = {};
-    const sources: string[] = [];
-
-    try {
-      if (includeElectricity) {
-        const data = await fetchElectricityRatesByZip(trimmedZip);
-        if (data) {
-          updates.homeElectricityPrice = data.residential;
-          sources.push(`Electricity · ${data.source || 'API'}`);
-        }
-      }
-
-      if (includeGas) {
-        const data = await fetchGasPricesByZip(trimmedZip);
-        if (data) {
-          updates.regularGasPrice = data.regular;
-          updates.premiumGasPrice = data.premium;
-          sources.push(`Gas · ${data.source || 'API'}`);
-        }
-      }
-
-      if (Object.keys(updates).length) {
-        onUpdate(updates);
-        setStatus('success');
-        setMessage('Updated from latest data sources.');
-        setSourceNotes(sources);
-      } else {
-        setStatus('error');
-        setMessage('No data returned. Try another ZIP or enter manually.');
-      }
-    } catch (error) {
-      setStatus('error');
-      setMessage('Lookup failed. Please try again or enter manually.');
-    }
+    setIsLocating(false);
   };
 
   const handleUseLocation = () => {
-    if (!navigator.geolocation) {
-      setStatus('error');
-      setMessage('Geolocation not supported in this browser.');
-      return;
-    }
+    const secureContext = typeof window !== 'undefined' && window.isSecureContext;
 
     setIsLocating(true);
     setStatus('idle');
     setMessage('Detecting your location…');
+
+    if (!navigator.geolocation || !secureContext) {
+      runIpFallback('This browser blocked GPS access. Trying network lookup…');
+      return;
+    }
 
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
@@ -104,23 +127,25 @@ export default function PriceLookup({ onUpdate }: PriceLookupProps) {
           const zip = await reverseGeocode(coords.latitude, coords.longitude);
           if (zip) {
             setZipCode(zip);
-            setMessage('Location detected. Press look up to fetch prices.');
+            setMessage('Location detected. Fetching prices…');
+            await performLookupForZip(zip);
           } else {
-            setStatus('error');
-            setMessage('Could not find a ZIP for your location.');
+            await runIpFallback('Unable to map coordinates to a ZIP. Trying network lookup…');
           }
         } catch (error) {
-          setStatus('error');
-          setMessage('Location lookup failed. Please enter ZIP manually.');
+          await runIpFallback('Location lookup failed. Trying network lookup…');
         } finally {
           setIsLocating(false);
         }
       },
-      () => {
-        setIsLocating(false);
-        setStatus('error');
-        setMessage('Location permission denied.');
-      }
+      async (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          await runIpFallback('Location permission blocked. Trying network lookup…');
+        } else {
+          await runIpFallback('Unable to read GPS. Trying network lookup…');
+        }
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 0 }
     );
   };
 
