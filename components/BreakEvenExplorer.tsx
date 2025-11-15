@@ -798,25 +798,99 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex flex-wrap gap-3 text-xs text-slate-500 sm:flex-nowrap lg:flex-col lg:items-end lg:gap-4">
-            {markerPoints.map((point) => (
-              <div
-                key={point.label}
-                className="min-w-[160px] rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm"
-              >
-                <span className="inline-flex items-center gap-1 font-semibold text-slate-600">
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: point.color }}
-                  />
-                  {point.label}
-                </span>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  Gas: {formatGasPrice(point.gasPrice)} · Electric: {formatRate(point.electricityPrice)}
-                </p>
+          <div className="flex flex-col gap-4 lg:w-80">
+            <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <svg className="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <p className="text-sm font-semibold text-slate-900">Home charging</p>
               </div>
-            ))}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-slate-600">Regular gas:</span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    {formatPerMile(actualHomeCostPerMile - gasRegularCostPerMile)} vs regular
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-slate-600">Premium gas:</span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    {formatPerMile(actualHomeCostPerMile - gasPremiumCostPerMile)} vs premium
+                  </span>
+                </div>
+                <div className="mt-3 pt-3 border-t border-slate-200">
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                    Break‑even: Gas price &gt; {formatGasPrice((inputs.homeElectricityPrice * inputs.gasEfficiency) / inputs.evEfficiency)}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <svg className="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <p className="text-sm font-semibold text-slate-900">Fast charging</p>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-slate-600">Regular gas:</span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700">
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                    {formatPerMile(fastCostPerMile - gasRegularCostPerMile)} vs regular
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-slate-600">Premium gas:</span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700">
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                    {formatPerMile(fastCostPerMile - gasPremiumCostPerMile)} vs premium
+                  </span>
+                </div>
+                <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap gap-2">
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                    Break‑even: Station rate &lt; {formatRate(parityRegular)} (regular)
+                  </span>
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                    &lt; {formatRate(parityPremium)} (premium)
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-500">
+          {markerPoints.map((point) => (
+            <div
+              key={point.label}
+              className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm"
+            >
+              <span className="inline-flex items-center gap-1 font-semibold text-slate-600">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: point.color }}
+                />
+                {point.label}
+              </span>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Gas: {formatGasPrice(point.gasPrice)}
+              </p>
+              <p className="text-[11px] text-slate-500">
+                Electric: {formatRate(point.electricityPrice)}
+              </p>
+            </div>
+          ))}
         </div>
         <p className="mt-3 text-xs text-slate-500">
           Points below the line live in the EV-cheaper zone; points above it indicate gas is cheaper
@@ -983,20 +1057,6 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
           ))}
           </div>
         </div>
-      </div>
-
-      <div className="mt-8 rounded-3xl border border-slate-100 bg-white/85 p-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Fast charging outlook
-        </p>
-        <p className="mt-2 text-lg font-semibold text-slate-900">
-          Fast charging costs {describeMargin(gasRegularCostPerMile - fastCostPerMile)} vs regular gas and{' '}
-          {describeMargin(gasPremiumCostPerMile - fastCostPerMile)} vs premium.
-        </p>
-        <p className="text-sm text-slate-500">
-          Fast charging only undercuts regular gas if station rates drop below {formatRate(parityRegular)},
-          and it would take {formatRate(parityPremium)} or less to beat premium gas.
-        </p>
       </div>
     </section>
   );
