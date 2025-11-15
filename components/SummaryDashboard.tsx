@@ -9,7 +9,6 @@ import {
   ScenarioResult,
 } from '@/types';
 import { formatCurrency } from '@/lib/calculations';
-import ResultsDisplay from './ResultsDisplay';
 
 interface SummaryDashboardProps {
   results: CalculationResults;
@@ -182,7 +181,7 @@ export default function SummaryDashboard({
         </div>
       </div>
 
-      <div className="mt-6 space-y-4">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
         {optionRows.map((option) => {
           const percentage =
             maxCost === 0
@@ -201,34 +200,18 @@ export default function SummaryDashboard({
             >
               <button
                 type="button"
-                className="flex w-full items-start justify-between gap-4 text-left"
+                className="flex w-full flex-col gap-3 text-left"
                 onClick={() =>
                   setExpandedKey((prev) => (prev === option.key ? null : option.key))
                 }
                 aria-expanded={isExpanded}
               >
-                <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                     <span className={`h-2 w-2 rounded-full ${option.dot}`} />
                     {option.label}
                   </div>
-                  <div className="text-2xl font-semibold text-slate-900">
-                    {formatCurrency(option.breakdown.totalCost)}
-                  </div>
-                  <p
-                    className={`text-sm font-medium ${
-                      delta === 0 ? 'text-emerald-600' : 'text-slate-500'
-                    }`}
-                  >
-                    {deltaLabel}
-                  </p>
-                </div>
-                <div className="text-sm text-slate-500">
-                  <p className="font-semibold text-slate-700">Cost per mile</p>
-                  <p className="text-lg font-semibold text-slate-900">
-                    {formatCurrency(option.breakdown.costPerMile)}
-                  </p>
-                  <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
                     Details
                     <svg
                       className={`h-3 w-3 transition ${
@@ -247,13 +230,34 @@ export default function SummaryDashboard({
                     </svg>
                   </span>
                 </div>
+                <div className="flex items-end justify-between gap-4">
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs text-slate-500">Total cost</p>
+                    <div className="text-2xl font-semibold text-slate-900">
+                      {formatCurrency(option.breakdown.totalCost)}
+                    </div>
+                    <p className="text-xs text-slate-500">Cost per mile</p>
+                    <p className="text-lg font-semibold text-slate-900">
+                      {formatCurrency(option.breakdown.costPerMile)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p
+                      className={`text-sm font-medium ${
+                        delta === 0 ? 'text-emerald-600' : 'text-slate-500'
+                      }`}
+                    >
+                      {deltaLabel}
+                    </p>
+                  </div>
+                </div>
+                <div className="h-2 rounded-full bg-slate-100">
+                  <div
+                    className={`h-full rounded-full bg-gradient-to-r ${option.accent}`}
+                    style={{ width: `${percentage}%` }}
+                  />
+                </div>
               </button>
-              <div className="mt-4 h-3 rounded-full bg-slate-100">
-                <div
-                  className={`h-full rounded-full bg-gradient-to-r ${option.accent}`}
-                  style={{ width: `${percentage}%` }}
-                />
-              </div>
               {isExpanded && (
                 <div className="mt-4 grid gap-4 rounded-2xl border border-slate-100 bg-slate-50/80 p-4 text-sm text-slate-600 sm:grid-cols-3">
                   <div>
@@ -288,27 +292,6 @@ export default function SummaryDashboard({
             </div>
           );
         })}
-      </div>
-
-      <div className="mt-10">
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold text-slate-500">Scenarios</p>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-              {usageScale === 'daily' ? 'Daily' : usageScale === 'weekly' ? 'Weekly' : usageScale === 'monthly' ? 'Monthly' : 'Yearly'} comparison
-            </h2>
-            <p className="text-sm text-slate-500">
-              Showing costs for {scenario.distance.toLocaleString()} miles {scaleLabels[usageScale]}.
-            </p>
-          </div>
-          <span className="rounded-full bg-slate-900/5 px-3 py-1 text-xs font-semibold text-slate-600">
-            Based on selected timeframe
-          </span>
-        </div>
-
-        <div className="space-y-5">
-          <ResultsDisplay scenario={scenario} scenarioName={usageScale === 'daily' ? 'Daily' : usageScale === 'weekly' ? 'Weekly' : usageScale === 'monthly' ? 'Monthly' : 'Yearly'} />
-        </div>
       </div>
     </section>
   );

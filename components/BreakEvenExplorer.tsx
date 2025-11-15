@@ -642,160 +642,8 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-slate-500">Break-even explorer</p>
-          <h2 className="mt-1 text-2xl font-semibold text-slate-900">
-            When does charging cost more than gas?
-          </h2>
-          <p className="text-sm text-slate-500">
-            Use the slider to test different electricity prices and spot the exact point where
-            charging surpasses gas for your inputs.
-          </p>
         </div>
         <span className="badge-label">Interactive</span>
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
-        <div className="space-y-4">
-          <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-5">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Test home charging rate
-                </p>
-                <p className="text-3xl font-semibold text-slate-900">{formatRate(testHomeRate)}</p>
-                <p className="text-sm text-slate-500">
-                  Home charging cost at this rate: {formatPerMile(sliderHomeCostPerMile)}
-                </p>
-              </div>
-              <div className="text-right text-sm text-slate-500">
-                <p>Current input: {formatRate(inputs.homeElectricityPrice)}</p>
-              </div>
-            </div>
-            <div className="mt-6">
-              <input
-                type="range"
-                min={sliderBounds.min}
-                max={sliderBounds.max}
-                step={0.005}
-                value={testHomeRate}
-                onChange={(event) => setTestHomeRate(parseFloat(event.target.value))}
-                className="w-full accent-indigo-600"
-              />
-              <div className="mt-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <span>{formatRate(sliderBounds.min)}</span>
-                <span>{formatRate(sliderBounds.max)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-5">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Test fast charging rate
-                </p>
-                <p className="text-3xl font-semibold text-slate-900">{formatRate(testFastRate)}</p>
-                <p className="text-sm text-slate-500">
-                  Fast charging cost at this rate: {formatPerMile(sliderFastCostPerMile)}
-                </p>
-              </div>
-              <div className="text-right text-sm text-slate-500">
-                <p>Current input: {formatRate(inputs.fastChargingPrice)}</p>
-              </div>
-            </div>
-            <div className="mt-6">
-              <input
-                type="range"
-                min={sliderBounds.min}
-                max={sliderBounds.max}
-                step={0.005}
-                value={testFastRate}
-                onChange={(event) => setTestFastRate(parseFloat(event.target.value))}
-                className="w-full accent-purple-600"
-              />
-              <div className="mt-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <span>{formatRate(sliderBounds.min)}</span>
-                <span>{formatRate(sliderBounds.max)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          {sliderCards.map((card) => (
-            <div
-              key={card.label}
-              className="rounded-3xl border border-slate-100 bg-white/80 p-4 shadow-sm shadow-slate-900/5"
-            >
-              <div className="mb-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {card.label}
-                </p>
-                <p className="mt-1 text-lg font-semibold text-slate-900">
-                  Test rate: {formatRate(card.testRate)}
-                </p>
-              </div>
-              <div className="space-y-2">
-                {card.comparisons.map((comparison) => {
-                  const margin = comparison.gasCost - card.sliderCost;
-                  const status =
-                    margin > 0 ? 'Charging cheaper' : margin < 0 ? 'Charging more expensive' : 'At parity';
-                  const barPercent =
-                    comparison.parity > 0
-                      ? Math.min(100, (card.testRate / comparison.parity) * 100)
-                      : card.testRate > 0
-                        ? 100
-                        : 0;
-                  const parityPercent =
-                    comparison.parity > 0 ? `${Math.round((card.testRate / comparison.parity) * 100)}%` : '—';
-
-                  return (
-                    <div key={comparison.label}>
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
-                          <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">
-                            {comparison.label}
-                          </span>
-                          <span className="text-xs text-slate-500 whitespace-nowrap">
-                            Break-even: {formatRate(comparison.parity)}
-                          </span>
-                          <span
-                            className={`text-xs font-medium whitespace-nowrap ${
-                              margin > 0 ? 'text-emerald-600' : margin < 0 ? 'text-rose-600' : 'text-slate-600'
-                            }`}
-                          >
-                            {status}: {describeMargin(margin)}
-                          </span>
-                          <span className="text-[10px] text-slate-500 whitespace-nowrap">
-                            {parityPercent} of break-even
-                          </span>
-                        </div>
-                        <span
-                          className={`badge-label text-[10px] px-2 py-0.5 shrink-0 ${
-                            margin > 0
-                              ? 'border-emerald-200 text-emerald-600'
-                              : margin < 0
-                                ? 'border-rose-200 text-rose-600'
-                                : ''
-                          }`}
-                        >
-                          {margin > 0 ? 'Below' : margin < 0 ? 'Above' : 'At'}
-                        </span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-slate-200">
-                        <div
-                          className={`h-full rounded-full ${
-                            margin >= 0 ? 'bg-emerald-400' : 'bg-rose-400'
-                          }`}
-                          style={{ width: `${barPercent}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       <div className="mt-8 rounded-3xl border border-slate-100 bg-white/90 p-5">
@@ -976,28 +824,168 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
         </p>
       </div>
 
-      <div className="mt-8 rounded-3xl border border-slate-100 bg-gradient-to-br from-white to-slate-50 p-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Cost per mile snapshot
-        </p>
-        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {comparisonRows.map((row) => (
+      <div className="mt-8 rounded-3xl border border-slate-100 bg-white/90 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Price testing
+            </p>
+            <h3 className="text-xl font-semibold text-slate-900">
+              When does charging cost more than gas?
+            </h3>
+            <p className="text-sm text-slate-500">
+              Use the slider to test different electricity prices and spot the exact point where
+              charging surpasses gas for your inputs.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
+          <div className="space-y-4">
+            <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-5">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Test home charging rate
+                </p>
+                <p className="text-3xl font-semibold text-slate-900">{formatRate(testHomeRate)}</p>
+                <p className="text-sm text-slate-500">
+                  Home charging cost at this rate: {formatPerMile(sliderHomeCostPerMile)}
+                </p>
+              </div>
+              <div className="text-right text-sm text-slate-500">
+                <p>Current input: {formatRate(inputs.homeElectricityPrice)}</p>
+              </div>
+            </div>
+            <div className="mt-6">
+              <input
+                type="range"
+                min={sliderBounds.min}
+                max={sliderBounds.max}
+                step={0.005}
+                value={testHomeRate}
+                onChange={(event) => setTestHomeRate(parseFloat(event.target.value))}
+                className="w-full accent-indigo-600"
+              />
+              <div className="mt-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span>{formatRate(sliderBounds.min)}</span>
+                <span>{formatRate(sliderBounds.max)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-5">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Test fast charging rate
+                </p>
+                <p className="text-3xl font-semibold text-slate-900">{formatRate(testFastRate)}</p>
+                <p className="text-sm text-slate-500">
+                  Fast charging cost at this rate: {formatPerMile(sliderFastCostPerMile)}
+                </p>
+              </div>
+              <div className="text-right text-sm text-slate-500">
+                <p>Current input: {formatRate(inputs.fastChargingPrice)}</p>
+              </div>
+            </div>
+            <div className="mt-6">
+              <input
+                type="range"
+                min={sliderBounds.min}
+                max={sliderBounds.max}
+                step={0.005}
+                value={testFastRate}
+                onChange={(event) => setTestFastRate(parseFloat(event.target.value))}
+                className="w-full accent-purple-600"
+              />
+              <div className="mt-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <span>{formatRate(sliderBounds.min)}</span>
+                <span>{formatRate(sliderBounds.max)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {sliderCards.map((card) => (
             <div
-              key={row.label}
-              className="rounded-2xl border border-slate-100 bg-white/85 p-4 text-sm text-slate-600"
+              key={card.label}
+              className="rounded-3xl border border-slate-100 bg-white/80 p-4 shadow-sm shadow-slate-900/5"
             >
-              <p className="font-semibold text-slate-500">{row.label}</p>
-              <p className={`mt-2 text-xl font-semibold ${row.tone}`}>{formatPerMile(row.value)}</p>
+              <div className="mb-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {card.label}
+                </p>
+                <p className="mt-1 text-lg font-semibold text-slate-900">
+                  Test rate: {formatRate(card.testRate)}
+                </p>
+              </div>
+              <div className="space-y-2">
+                {card.comparisons.map((comparison) => {
+                  const margin = comparison.gasCost - card.sliderCost;
+                  const status =
+                    margin > 0 ? 'Charging cheaper' : margin < 0 ? 'Charging more expensive' : 'At parity';
+                  const barPercent =
+                    comparison.parity > 0
+                      ? Math.min(100, (card.testRate / comparison.parity) * 100)
+                      : card.testRate > 0
+                        ? 100
+                        : 0;
+                  const parityPercent =
+                    comparison.parity > 0 ? `${Math.round((card.testRate / comparison.parity) * 100)}%` : '—';
+
+                  return (
+                    <div key={comparison.label}>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                          <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">
+                            {comparison.label}
+                          </span>
+                          <span className="text-xs text-slate-500 whitespace-nowrap">
+                            Break-even: {formatRate(comparison.parity)}
+                          </span>
+                          <span
+                            className={`text-xs font-medium whitespace-nowrap ${
+                              margin > 0 ? 'text-emerald-600' : margin < 0 ? 'text-rose-600' : 'text-slate-600'
+                            }`}
+                          >
+                            {status}: {describeMargin(margin)}
+                          </span>
+                          <span className="text-[10px] text-slate-500 whitespace-nowrap">
+                            {parityPercent} of break-even
+                          </span>
+                        </div>
+                        <span
+                          className={`badge-label text-[10px] px-2 py-0.5 shrink-0 ${
+                            margin > 0
+                              ? 'border-emerald-200 text-emerald-600'
+                              : margin < 0
+                                ? 'border-rose-200 text-rose-600'
+                                : ''
+                          }`}
+                        >
+                          {margin > 0 ? 'Below' : margin < 0 ? 'Above' : 'At'}
+                        </span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-slate-200">
+                        <div
+                          className={`h-full rounded-full ${
+                            margin >= 0 ? 'bg-emerald-400' : 'bg-rose-400'
+                          }`}
+                          style={{ width: `${barPercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ))}
+          </div>
         </div>
-        <p className="mt-4 text-xs text-slate-500">
-          Figures assume your EV efficiency of {inputs.evEfficiency.toFixed(1)} mi/kWh and gas efficiency of{' '}
-          {inputs.gasEfficiency.toFixed(0)} mpg.
-        </p>
       </div>
 
-      <div className="mt-6 rounded-3xl border border-slate-100 bg-white/85 p-5">
+      <div className="mt-8 rounded-3xl border border-slate-100 bg-white/85 p-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Fast charging outlook
         </p>

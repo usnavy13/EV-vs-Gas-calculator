@@ -33,7 +33,7 @@ const SCALE_FACTORS: Record<UsageScale, number> = {
 export default function Home() {
   const [inputs, setInputs] = useState<CalculatorInputs>(defaultInputs);
   const [usageScale, setUsageScale] = useState<UsageScale>('daily');
-  const [gapBaseline, setGapBaseline] = useState<CostOptionKey>('gasPremium');
+  const [gapBaseline, setGapBaseline] = useState<CostOptionKey>('gasRegular');
   const results: CalculationResults = calculateAllScenarios(inputs);
 
   const yearlyComparisons = useMemo(
@@ -90,7 +90,7 @@ export default function Home() {
   const handleResetInputs = () => {
     setInputs({ ...defaultInputs });
     setUsageScale('daily');
-    setGapBaseline('gasPremium');
+    setGapBaseline('gasRegular');
   };
 
   return (
