@@ -6,7 +6,6 @@ import {
   fetchElectricityRatesByZip,
   validateZipCode,
   reverseGeocode,
-  fetchZipFromIp,
 } from '@/lib/api-services';
 import { CalculatorInputs } from '@/types';
 
@@ -95,20 +94,6 @@ export default function PriceLookup({ onUpdate }: PriceLookupProps) {
     await performLookupForZip(trimmedZip);
   };
 
-  const runIpFallback = async (infoMessage?: string) => {
-    setMessage(infoMessage || 'Trying network-based lookup…');
-    const ipZip = await fetchZipFromIp();
-    if (ipZip) {
-      setZipCode(ipZip);
-      setMessage('Using approximate ZIP from your network. Fetching prices…');
-      await performLookupForZip(ipZip);
-    } else {
-      setStatus('error');
-      setMessage('Could not detect your ZIP automatically. Please enter it manually.');
-    }
-    setIsLocating(false);
-  };
-
   const handleUseLocation = () => {
     const secureContext = typeof window !== 'undefined' && window.isSecureContext;
 
@@ -116,8 +101,17 @@ export default function PriceLookup({ onUpdate }: PriceLookupProps) {
     setStatus('idle');
     setMessage('Detecting your location…');
 
-    if (!navigator.geolocation || !secureContext) {
-      runIpFallback('This browser blocked GPS access. Trying network lookup…');
+    if (!navigator.geolocation) {
+      setIsLocating(false);
+      setStatus('error');
+      setMessage('Geolocation is not supported by this browser. Please enter your ZIP code manually.');
+      return;
+    }
+
+    if (!secureContext) {
+      setIsLocating(false);
+      setStatus('error');
+      setMessage('Location access requires a secure connection (HTTPS). Please enter your ZIP code manually.');
       return;
     }
 
@@ -130,19 +124,30 @@ export default function PriceLookup({ onUpdate }: PriceLookupProps) {
             setMessage('Location detected. Fetching prices…');
             await performLookupForZip(zip);
           } else {
-            await runIpFallback('Unable to map coordinates to a ZIP. Trying network lookup…');
+            setStatus('error');
+            setMessage('Unable to map coordinates to a ZIP code. Please enter your ZIP code manually.');
           }
         } catch (error) {
-          await runIpFallback('Location lookup failed. Trying network lookup…');
+          setStatus('error');
+          setMessage('Location lookup failed. Please enter your ZIP code manually.');
         } finally {
           setIsLocating(false);
         }
       },
-      async (error) => {
+      (error) => {
+        setIsLocating(false);
         if (error.code === error.PERMISSION_DENIED) {
-          await runIpFallback('Location permission blocked. Trying network lookup…');
+          setStatus('error');
+          setMessage('Location permission denied. Please allow location access or enter your ZIP code manually.');
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          setStatus('error');
+          setMessage('Location information is unavailable. Please enter your ZIP code manually.');
+        } else if (error.code === error.TIMEOUT) {
+          setStatus('error');
+          setMessage('Location request timed out. Please try again or enter your ZIP code manually.');
         } else {
-          await runIpFallback('Unable to read GPS. Trying network lookup…');
+          setStatus('error');
+          setMessage('Unable to get your location. Please enter your ZIP code manually.');
         }
       },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 0 }

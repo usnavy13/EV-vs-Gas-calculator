@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CalculatorInputs,
   CalculationResults,
@@ -8,6 +8,7 @@ import {
   UsageScale,
 } from '@/types';
 import { calculateAllScenarios, formatCurrency } from '@/lib/calculations';
+import { fetchNationalGasPrices } from '@/lib/api-services';
 import InputSection from '@/components/InputSection';
 import SummaryDashboard from '@/components/SummaryDashboard';
 import BreakEvenExplorer from '@/components/BreakEvenExplorer';
@@ -35,6 +36,31 @@ export default function Home() {
   const [usageScale, setUsageScale] = useState<UsageScale>('daily');
   const [gapBaseline, setGapBaseline] = useState<CostOptionKey>('gasRegular');
   const results: CalculationResults = calculateAllScenarios(inputs);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadNationalGasPrices = async () => {
+      try {
+        const data = await fetchNationalGasPrices();
+        if (data && isMounted) {
+          setInputs((prev) => ({
+            ...prev,
+            regularGasPrice: data.regular ?? prev.regularGasPrice,
+            premiumGasPrice: data.premium ?? prev.premiumGasPrice,
+          }));
+        }
+      } catch (error) {
+        console.error('[Home] Failed to load national gas prices', error);
+      }
+    };
+
+    loadNationalGasPrices();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const yearlyComparisons = useMemo(
     () => [
@@ -192,22 +218,15 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="card-surface relative overflow-hidden rounded-[32px] border border-white/10 bg-slate-900/90 px-4 py-6 text-white shadow-[0_25px_80px_rgba(8,6,23,0.65)] sm:px-6 lg:px-8 lg:py-8">
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute inset-x-16 -bottom-16 h-48 rounded-full bg-indigo-500/20 blur-[140px]" />
-          </div>
-          <div className="relative">
-            <InputSection
-              inputs={inputs}
-              onChange={setInputs}
-              usageScale={usageScale}
-              onUsageScaleChange={setUsageScale}
-              displayDistance={displayDistance}
-              onDistanceChange={handleDistanceChange}
-              onResetInputs={handleResetInputs}
-            />
-          </div>
-        </section>
+        <InputSection
+          inputs={inputs}
+          onChange={setInputs}
+          usageScale={usageScale}
+          onUsageScaleChange={setUsageScale}
+          displayDistance={displayDistance}
+          onDistanceChange={handleDistanceChange}
+          onResetInputs={handleResetInputs}
+        />
 
         <SummaryDashboard
           inputs={inputs}

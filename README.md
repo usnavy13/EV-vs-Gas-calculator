@@ -87,9 +87,14 @@ Create a `.env.local` file in the root directory with your EIA API key:
 
 ```
 EIA_API_KEY=your_eia_api_key_here
+LOG_LEVEL=lite
 ```
 
-Get your free API key at: https://www.eia.gov/opendata/register.php
+**Available Environment Variables:**
+- `EIA_API_KEY`: Your EIA API key for fetching real-time electricity rates. Get your free API key at: https://www.eia.gov/opendata/register.php
+- `LOG_LEVEL`: Controls logging verbosity. Options:
+  - `lite` (default): Only logs errors and warnings
+  - `verbose`: Logs all debug/info messages including API requests and responses
 
 ## Technology Stack
 

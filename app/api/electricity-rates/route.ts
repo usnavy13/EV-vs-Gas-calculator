@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -21,39 +22,39 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    console.log(`[Electricity Rates API] Received request for ZIP: ${zipCode}`);
+    logger.verbose('Electricity Rates API', `Received request for ZIP: ${zipCode}`);
     
     const stateCode = await getStateFromZip(zipCode);
-    console.log(`[Electricity Rates API] State code lookup result: ${stateCode || 'null'}`);
+    logger.verbose('Electricity Rates API', `State code lookup result: ${stateCode || 'null'}`);
     
     if (stateCode) {
       const rate = await getStateElectricityRate(stateCode);
-      console.log(`[Electricity Rates API] State rate lookup result: ${rate || 'null'}`);
+      logger.verbose('Electricity Rates API', `State rate lookup result: ${rate || 'null'}`);
       
       if (rate) {
         // Round to nearest cent (2 decimal places)
         const roundedRate = Math.round(rate * 100) / 100;
-        console.log(`[Electricity Rates API] Returning state-specific rate for ${stateCode}`);
+        logger.verbose('Electricity Rates API', `Returning state-specific rate for ${stateCode}`);
         return NextResponse.json({
           residential: roundedRate,
           source: `Average for ${stateCode}`,
         });
       } else {
-        console.log(`[Electricity Rates API] No rate found for state ${stateCode}, using fallback`);
+        logger.verbose('Electricity Rates API', `No rate found for state ${stateCode}, using fallback`);
       }
     } else {
-      console.log(`[Electricity Rates API] No state code found for ZIP ${zipCode}, using fallback`);
+      logger.verbose('Electricity Rates API', `No state code found for ZIP ${zipCode}, using fallback`);
     }
     
     // Fallback to national average residential rate
-    console.log(`[Electricity Rates API] Returning fallback rate`);
+    logger.verbose('Electricity Rates API', 'Returning fallback rate');
     return NextResponse.json({
       residential: 0.12, // Already rounded to nearest cent
       source: 'National average (fallback)',
     });
     
   } catch (error) {
-    console.error('Error fetching electricity rates:', error);
+    logger.error('Error fetching electricity rates:', error);
     return NextResponse.json(
       { error: 'Failed to fetch electricity rates' },
       { status: 500 }
@@ -67,41 +68,41 @@ export async function GET(request: NextRequest) {
 async function getStateFromZip(zipCode: string): Promise<string | null> {
   try {
     const zip5 = zipCode.substring(0, 5);
-    console.log(`[getStateFromZip] Looking up ZIP: ${zip5}`);
+    logger.verbose('getStateFromZip', `Looking up ZIP: ${zip5}`);
     
     const apiUrl = `https://api.zippopotam.us/us/${zip5}`;
-    console.log(`[getStateFromZip] Calling API: ${apiUrl}`);
+    logger.verbose('getStateFromZip', `Calling API: ${apiUrl}`);
     
     const response = await fetch(apiUrl, {
       headers: { 'Accept': 'application/json' },
     });
     
-    console.log(`[getStateFromZip] Response status: ${response.status} ${response.statusText}`);
+    logger.verbose('getStateFromZip', `Response status: ${response.status} ${response.statusText}`);
     
     if (response.ok) {
       const data = await response.json();
-      console.log(`[getStateFromZip] Response data:`, JSON.stringify(data, null, 2));
+      logger.verbose('getStateFromZip', `Response data:`, JSON.stringify(data, null, 2));
       
       if (data.places && data.places.length > 0) {
         // API returns "state abbreviation" with a space, not underscore
         const stateCode = data.places[0]['state abbreviation'] || data.places[0].state_abbreviation;
-        console.log(`[getStateFromZip] Found state code: ${stateCode}`);
+        logger.verbose('getStateFromZip', `Found state code: ${stateCode}`);
         return stateCode;
       } else {
-        console.log(`[getStateFromZip] No places found in response`);
+        logger.verbose('getStateFromZip', 'No places found in response');
       }
     } else {
       const errorText = await response.text();
-      console.log(`[getStateFromZip] API error response: ${errorText}`);
+      logger.verbose('getStateFromZip', `API error response: ${errorText}`);
     }
     
-    console.log(`[getStateFromZip] Returning null - state lookup failed`);
+    logger.verbose('getStateFromZip', 'Returning null - state lookup failed');
     return null;
   } catch (error) {
-    console.error('[getStateFromZip] Exception:', error);
+    logger.error('[getStateFromZip] Exception:', error);
     if (error instanceof Error) {
-      console.error('[getStateFromZip] Error message:', error.message);
-      console.error('[getStateFromZip] Error stack:', error.stack);
+      logger.error('[getStateFromZip] Error message:', error.message);
+      logger.error('[getStateFromZip] Error stack:', error.stack);
     }
     return null;
   }
@@ -121,14 +122,14 @@ async function getStateElectricityRate(stateCode: string): Promise<number | null
         const seriesId = `ELEC.PRICE.${stateCode}.RES.M`;
         const eiaUrl = `https://api.eia.gov/v2/electricity/retail-sales/data/?api_key=${eiaApiKey}&frequency=monthly&data[0]=price&facets[stateid][]=${stateCode}&facets[sectorid][]=RES&sort[0][column]=period&sort[0][direction]=desc&length=1`;
         
-        console.log(`[getStateElectricityRate] Fetching from EIA API for ${stateCode}`);
+        logger.verbose('getStateElectricityRate', `Fetching from EIA API for ${stateCode}`);
         const eiaResponse = await fetch(eiaUrl, {
           headers: { 'Accept': 'application/json' },
         });
         
         if (eiaResponse.ok) {
           const eiaData = await eiaResponse.json();
-          console.log(`[getStateElectricityRate] EIA API response:`, JSON.stringify(eiaData, null, 2));
+          logger.verbose('getStateElectricityRate', `EIA API response:`, JSON.stringify(eiaData, null, 2));
           
           // Parse EIA response - structure: { response: { data: [{ price: value }] } }
           if (eiaData?.response?.data && eiaData.response.data.length > 0) {
@@ -139,23 +140,23 @@ async function getStateElectricityRate(stateCode: string): Promise<number | null
             if (priceValue && !isNaN(priceValue) && priceValue > 0) {
               // EIA returns price in cents per kWh, convert to dollars and round to nearest cent
               const rateInDollars = Math.round((priceValue / 100) * 100) / 100;
-              console.log(`[getStateElectricityRate] Found EIA rate for ${stateCode}: $${rateInDollars}/kWh (from ${priceValue} cents)`);
+              logger.verbose('getStateElectricityRate', `Found EIA rate for ${stateCode}: $${rateInDollars}/kWh (from ${priceValue} cents)`);
               return rateInDollars;
             } else {
-              console.log(`[getStateElectricityRate] Invalid price value: ${latestPrice}`);
+              logger.verbose('getStateElectricityRate', `Invalid price value: ${latestPrice}`);
             }
           } else {
-            console.log(`[getStateElectricityRate] No data in EIA response`);
+            logger.verbose('getStateElectricityRate', 'No data in EIA response');
           }
         } else {
           const errorText = await eiaResponse.text();
-          console.log(`[getStateElectricityRate] EIA API error: ${eiaResponse.status} - ${errorText}`);
+          logger.verbose('getStateElectricityRate', `EIA API error: ${eiaResponse.status} - ${errorText}`);
         }
       } catch (eiaError) {
-        console.log(`[getStateElectricityRate] EIA API call failed, using static data:`, eiaError);
+        logger.verbose('getStateElectricityRate', `EIA API call failed, using static data:`, eiaError);
       }
     } else {
-      console.log(`[getStateElectricityRate] EIA API key not found, using static data`);
+      logger.verbose('getStateElectricityRate', 'EIA API key not found, using static data');
     }
     
     // Fallback to state average residential electricity rates ($/kWh)
@@ -179,7 +180,7 @@ async function getStateElectricityRate(stateCode: string): Promise<number | null
     const rate = stateRates[stateCode];
     return rate || null;
   } catch (error) {
-    console.error('Error getting state electricity rate:', error);
+    logger.error('Error getting state electricity rate:', error);
     return null;
   }
 }

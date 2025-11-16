@@ -124,7 +124,10 @@ export default function SummaryDashboard({
   const maxCost = Math.max(...optionRows.map((option) => option.breakdown.totalCost));
   const gapTarget =
     optionRows.find((option) => option.key === gapBaseline) ?? optionRows[0];
-  const gapValue = gapTarget.breakdown.totalCost - bestOption.breakdown.totalCost;
+  const evHomeOption = optionRows.find((option) => option.key === 'evHome') ?? optionRows[0];
+  
+  // Compare EV Home vs selected baseline: negative means EV is more expensive (red), positive means EV is cheaper (green)
+  const gapValue = gapTarget.breakdown.totalCost - evHomeOption.breakdown.totalCost;
 
   const distanceLabel = `${scenario.distance.toLocaleString()} mi ${scaleLabels[usageScale]}`;
 
@@ -160,11 +163,18 @@ export default function SummaryDashboard({
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Gap vs
             </p>
-            <p className="text-3xl font-semibold text-slate-900">
-              {formatCurrency(Math.abs(gapValue))}
+            <p className={`text-3xl font-semibold ${
+              gapValue < 0 ? 'text-rose-600' : gapValue > 0 ? 'text-emerald-600' : 'text-slate-900'
+            }`}>
+              {gapValue < 0 ? '-' : ''}{formatCurrency(Math.abs(gapValue))}
             </p>
             <p className="text-sm text-slate-500">
-              Difference between {bestOption.label} and {gapTarget.label} {scaleLabels[usageScale]}.
+              {gapValue === 0 
+                ? `${evHomeOption.label} and ${gapTarget.label} are equal ${scaleLabels[usageScale]}`
+                : gapValue < 0
+                  ? `${gapTarget.label} is ${formatCurrency(Math.abs(gapValue))} cheaper than ${evHomeOption.label} ${scaleLabels[usageScale]}`
+                  : `${evHomeOption.label} is ${formatCurrency(gapValue)} cheaper than ${gapTarget.label} ${scaleLabels[usageScale]}`
+              }
             </p>
           </div>
           <div className="flex flex-col gap-2">
@@ -235,26 +245,28 @@ export default function SummaryDashboard({
                     </svg>
                   </span>
                 </div>
-                <div className="flex items-end justify-between gap-4">
+                <div className="flex items-start justify-between gap-4">
                   <div className="flex flex-col gap-1">
+                    <p className="text-xs text-slate-500">Cost per mile</p>
+                    <p className="text-2xl font-semibold text-slate-900">
+                      {formatCurrency(option.breakdown.costPerMile)}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
                     <p className="text-xs text-slate-500">Total cost</p>
                     <div className="text-2xl font-semibold text-slate-900">
                       {formatCurrency(option.breakdown.totalCost)}
                     </div>
-                    <p className="text-xs text-slate-500">Cost per mile</p>
-                    <p className="text-lg font-semibold text-slate-900">
-                      {formatCurrency(option.breakdown.costPerMile)}
-                    </p>
                   </div>
-                  <div className="text-right">
-                    <p
-                      className={`text-sm font-medium ${
-                        delta === 0 ? 'text-emerald-600' : 'text-slate-500'
-                      }`}
-                    >
-                      {deltaLabel}
-                    </p>
-                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <p
+                    className={`text-sm font-medium ${
+                      delta === 0 ? 'text-emerald-600' : 'text-slate-500'
+                    }`}
+                  >
+                    {deltaLabel}
+                  </p>
                 </div>
                 <div className="h-2 rounded-full bg-slate-100">
                   <div
