@@ -100,7 +100,10 @@ export default function Home() {
   );
   const selectedGapBaseline =
     yearlyComparisons.find((option) => option.key === gapBaseline) || worstOption;
-  const annualGap = selectedGapBaseline.value - bestOption.value;
+  const evHomeOption = yearlyComparisons.find((option) => option.key === 'evHome') || bestOption;
+  
+  // Compare EV Home vs selected baseline: negative means EV is more expensive (red), positive means EV is cheaper (green)
+  const annualGap = selectedGapBaseline.value - evHomeOption.value;
 
   const displayDistance = inputs.baseDistance * SCALE_FACTORS[usageScale];
 
@@ -205,13 +208,18 @@ export default function Home() {
                   ))}
                 </select>
               </div>
-              <p className="text-3xl font-semibold">
-                {formatCurrency(Math.abs(annualGap))}
+              <p className={`text-3xl font-semibold ${
+                annualGap < 0 ? 'text-rose-400' : annualGap > 0 ? 'text-emerald-400' : 'text-white'
+              }`}>
+                {annualGap < 0 ? '-' : ''}{formatCurrency(Math.abs(annualGap))}
               </p>
               <p className="text-sm text-white/70">
-                Difference between {bestOption.label} and{' '}
-                {selectedGapBaseline.label} at{' '}
-                {results.yearly.distance.toLocaleString()} mi/yr.
+                {annualGap === 0 
+                  ? `${evHomeOption.label} and ${selectedGapBaseline.label} are equal at ${results.yearly.distance.toLocaleString()} mi/yr`
+                  : annualGap < 0
+                    ? `${selectedGapBaseline.label} is ${formatCurrency(Math.abs(annualGap))} cheaper than ${evHomeOption.label} at ${results.yearly.distance.toLocaleString()} mi/yr`
+                    : `${evHomeOption.label} is ${formatCurrency(annualGap)} cheaper than ${selectedGapBaseline.label} at ${results.yearly.distance.toLocaleString()} mi/yr`
+                }
               </p>
             </div>
             </div>

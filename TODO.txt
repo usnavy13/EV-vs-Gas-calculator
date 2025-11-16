@@ -1,3 +1,0 @@
-- Need major improvement with electircity rate lookup and gas price lookup
-Examine the lookup local prices feature that connects to the browser. it falls back to ip lookup on the request.
-We dont want to fallback we want to get the location from the browser or say failed. it should trigger a pop up in the browser saying this page is asking for your location and we should wait until the user responds. 
