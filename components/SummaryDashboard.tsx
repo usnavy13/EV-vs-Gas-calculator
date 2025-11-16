@@ -26,6 +26,13 @@ const scaleLabels: Record<UsageScale, string> = {
   yearly: 'per year',
 };
 
+/**
+ * Format cost per mile with higher precision to show small differences
+ */
+function formatCostPerMile(value: number): string {
+  return `$${value.toFixed(4)}`;
+}
+
 type ScenarioCostKey = keyof Omit<ScenarioResult, 'distance'>;
 
 const breakdownKey: Record<CostOptionKey, ScenarioCostKey> = {
@@ -73,7 +80,7 @@ export default function SummaryDashboard({
   gapBaseline,
   onGapBaselineChange,
 }: SummaryDashboardProps) {
-  const [expandedKey, setExpandedKey] = useState<CostOptionKey | null>(null);
+  const [areDetailsExpanded, setAreDetailsExpanded] = useState<boolean>(false);
 
   const scenario =
     usageScale === 'daily'
@@ -192,7 +199,7 @@ export default function SummaryDashboard({
             delta === 0
               ? 'Best price'
               : `${delta > 0 ? '+' : '-'}${formatCurrency(Math.abs(delta))} vs ${bestOption.label}`;
-          const isExpanded = expandedKey === option.key;
+          const isExpanded = areDetailsExpanded;
           return (
             <div
               key={option.key}
@@ -201,9 +208,7 @@ export default function SummaryDashboard({
               <button
                 type="button"
                 className="flex w-full flex-col gap-3 text-left"
-                onClick={() =>
-                  setExpandedKey((prev) => (prev === option.key ? null : option.key))
-                }
+                onClick={() => setAreDetailsExpanded((prev) => !prev)}
                 aria-expanded={isExpanded}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -259,28 +264,33 @@ export default function SummaryDashboard({
                 </div>
               </button>
               {isExpanded && (
-                <div className="mt-4 grid gap-4 rounded-2xl border border-slate-100 bg-slate-50/80 p-4 text-sm text-slate-600 sm:grid-cols-3">
+                <div className="mt-4 space-y-4 rounded-2xl border border-slate-100 bg-slate-50/80 p-4 text-sm text-slate-600">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Energy cost
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+                      Cost per mile calculation
                     </p>
                     <p className="text-base font-semibold text-slate-900">
-                      {formatCurrency(option.breakdown.fuelCost)}
+                      {option.key === 'evHome' && (
+                        <>{inputs.homeElectricityPrice.toFixed(2)} $/kWh ÷ {inputs.evEfficiency.toFixed(1)} mi/kWh = {formatCostPerMile(option.breakdown.costPerMile)}/mi</>
+                      )}
+                      {option.key === 'evFast' && (
+                        <>{inputs.fastChargingPrice.toFixed(2)} $/kWh ÷ {inputs.evEfficiency.toFixed(1)} mi/kWh = {formatCostPerMile(option.breakdown.costPerMile)}/mi</>
+                      )}
+                      {(option.key === 'gasRegular' || option.key === 'gasPremium') && (
+                        <>{option.key === 'gasRegular' ? inputs.regularGasPrice.toFixed(2) : inputs.premiumGasPrice.toFixed(2)} $/gal ÷ {inputs.gasEfficiency.toFixed(1)} mpg = {formatCostPerMile(option.breakdown.costPerMile)}/mi</>
+                      )}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Fees & extras
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+                      Total cost calculation
                     </p>
                     <p className="text-base font-semibold text-slate-900">
-                      Included (0)
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      We only model energy/fuel cost for now.
+                      {scenario.distance.toLocaleString()} mi × {formatCostPerMile(option.breakdown.costPerMile)}/mi = {formatCurrency(option.breakdown.totalCost)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
                       Assumptions
                     </p>
                     <p className="text-base font-semibold text-slate-900">
