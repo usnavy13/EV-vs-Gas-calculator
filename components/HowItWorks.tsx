@@ -36,7 +36,7 @@ export default function HowItWorks() {
         aria-expanded={isExpanded}
       >
         <div>
-          <p className="text-sm font-semibold text-white/70">Need a refresher?</p>
+          <p className="text-sm font-semibold text-white/70">FAQ</p>
           <h2 className="text-2xl font-semibold">How the calculator works</h2>
         </div>
         <svg
@@ -54,29 +54,29 @@ export default function HowItWorks() {
       {isExpanded && (
         <div className="grid gap-8 px-6 py-8 lg:grid-cols-3">
           <div className="space-y-4 rounded-[24px] border border-slate-100 bg-white/80 p-5 shadow-inner shadow-slate-900/5">
-            <h3 className="text-sm font-semibold text-slate-600">What goes into the math</h3>
+            <h3 className="text-sm font-semibold text-slate-600">How it works</h3>
             <ul className="space-y-3 text-sm text-slate-600">
               <li>
-                <strong>EV efficiency:</strong> Miles per kWh (mi/kWh). Higher numbers mean less
-                energy needed.
+                <strong>Vehicle selection:</strong> Choose real vehicles from FuelEconomy.gov to auto-fill efficiency ratings. Select combined, city, or highway modes.
               </li>
               <li>
-                <strong>Gas efficiency:</strong> Miles per gallon (mpg). The calculator uses the same
-                miles for EV and gas so the comparison stays fair.
+                <strong>Price lookup:</strong> Enter your ZIP code or use geolocation to fetch state‑average electricity and gas prices automatically.
               </li>
               <li>
-                <strong>Distance scaling:</strong> Daily miles roll up automatically to weekly,
-                monthly, and yearly totals.
+                <strong>Distance scaling:</strong> Enter your daily, weekly, monthly, or yearly driving distance. The calculator scales across all timeframes automatically.
               </li>
               <li>
-                <strong>Formula:</strong> (Distance ÷ Efficiency) × Price per unit = Cost.
+                <strong>Cost calculation:</strong> (Distance ÷ Efficiency) × Price per unit = Total Cost. Cost per mile = Price ÷ Efficiency.
+              </li>
+              <li>
+                <strong>Break-even explorer:</strong> Interactive chart shows when EV charging costs match gas prices. Use sliders to test different electricity rates.
               </li>
             </ul>
           </div>
           <div className="space-y-4 rounded-[24px] border border-slate-100 bg-white/80 p-5 shadow-inner shadow-slate-900/5">
             <h3 className="text-sm font-semibold text-slate-600">Common questions</h3>
             <div className="space-y-3">
-              {faqs.slice(0, 3).map((faq) => (
+              {faqs.map((faq) => (
                 <div key={faq.question} className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3">
                   <p className="text-sm font-semibold text-slate-900">{faq.question}</p>
                   <p className="text-xs text-slate-600">{faq.answer}</p>
@@ -85,12 +85,23 @@ export default function HowItWorks() {
             </div>
           </div>
           <div className="space-y-4 rounded-[24px] border border-slate-100 bg-white/80 p-5 shadow-inner shadow-slate-900/5">
-            <h3 className="text-sm font-semibold text-slate-600">Data notes</h3>
+            <h3 className="text-sm font-semibold text-slate-600">Features & data</h3>
             <ul className="space-y-3 text-sm text-slate-600">
-              <li>EPA fuel-economy data for efficiency presets.</li>
-              <li>Electricity rates from the EIA and other public APIs.</li>
-              <li>Gas prices from regional fuel price feeds.</li>
-              <li>Adjust anything manually if you have better numbers.</li>
+              <li>
+                <strong>Vehicle presets:</strong> EPA-rated efficiency from FuelEconomy.gov with combined, city, and highway modes.
+              </li>
+              <li>
+                <strong>Price sources:</strong> Electricity rates from EIA state averages (with fallbacks). Gas prices from AAA state/national averages.
+              </li>
+              <li>
+                <strong>Gap analysis:</strong> Compare EV home charging costs against any baseline (EV fast, gas regular, or gas premium).
+              </li>
+              <li>
+                <strong>Break-even visualization:</strong> Interactive chart with zoom, pan, and price testing sliders to find cost parity points.
+              </li>
+              <li>
+                <strong>Manual overrides:</strong> All inputs can be adjusted manually if you have more accurate local data.
+              </li>
             </ul>
           </div>
         </div>

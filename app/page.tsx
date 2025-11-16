@@ -140,14 +140,39 @@ export default function Home() {
                 side.
               </p>
               <div className="mt-6 flex flex-wrap gap-3 text-sm text-white/80">
-                <span className="badge-label border-white/30 bg-white/10 text-white/80">
+                <a
+                  href="#price-lookup"
+                  className="badge-label border-white/30 bg-white/10 text-white/80 transition hover:bg-white/20 cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('price-lookup')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                >
                   <span className="h-2 w-2 rounded-full bg-emerald-300" />
                   Local price lookup
-                </span>
-                <span className="badge-label border-white/30 bg-white/10 text-white/80">
+                </a>
+                <a
+                  href="#scenarios"
+                  className="badge-label border-white/30 bg-white/10 text-white/80 transition hover:bg-white/20 cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('scenarios')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                >
                   <span className="h-2 w-2 rounded-full bg-sky-300" />
                   Daily to yearly scenarios
-                </span>
+                </a>
+                <a
+                  href="#break-even"
+                  className="badge-label border-white/30 bg-white/10 text-white/80 transition hover:bg-white/20 cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('break-even')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                >
+                  <span className="h-2 w-2 rounded-full bg-purple-300" />
+                  Break Even Comparisons
+                </a>
               </div>
             </div>
             
@@ -226,26 +251,32 @@ export default function Home() {
           </div>
         </section>
 
-        <InputSection
-          inputs={inputs}
-          onChange={setInputs}
-          usageScale={usageScale}
-          onUsageScaleChange={setUsageScale}
-          displayDistance={displayDistance}
-          onDistanceChange={handleDistanceChange}
-          onResetInputs={handleResetInputs}
-        />
+        <div id="price-lookup">
+          <InputSection
+            inputs={inputs}
+            onChange={setInputs}
+            usageScale={usageScale}
+            onUsageScaleChange={setUsageScale}
+            displayDistance={displayDistance}
+            onDistanceChange={handleDistanceChange}
+            onResetInputs={handleResetInputs}
+          />
+        </div>
 
-        <SummaryDashboard
-          inputs={inputs}
-          results={results}
-          usageScale={usageScale}
-          onUsageScaleChange={setUsageScale}
-          gapBaseline={gapBaseline}
-          onGapBaselineChange={setGapBaseline}
-        />
+        <div id="scenarios">
+          <SummaryDashboard
+            inputs={inputs}
+            results={results}
+            usageScale={usageScale}
+            onUsageScaleChange={setUsageScale}
+            gapBaseline={gapBaseline}
+            onGapBaselineChange={setGapBaseline}
+          />
+        </div>
 
-        <BreakEvenExplorer inputs={inputs} />
+        <div id="break-even">
+          <BreakEvenExplorer inputs={inputs} />
+        </div>
         <HowItWorks />
 
         <footer className="rounded-[26px] border border-slate-200/70 bg-white/60 px-6 py-6 text-center text-sm text-slate-500 shadow-lg shadow-slate-900/5">

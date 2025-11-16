@@ -248,7 +248,7 @@ export default function InputSection({
           </h2>
           <p className="text-sm text-slate-500">
             Choose a vehicle baseline, pick the timeframe you care about, and
-            paste in your local fuel prices.
+            enter your local fuel prices.
           </p>
         </div>
         <button
@@ -325,7 +325,7 @@ export default function InputSection({
         <div className="grid gap-4 lg:grid-cols-[2fr,2fr,1fr]">
           <CollapsibleSection
             title="Prices"
-            description="Paste in rates or use the lookup tool."
+            description="Enter your local rates or use the lookup tool."
             helper="Use current electricity and gas prices for your ZIP so results stay relevant."
           >
             <div className="grid gap-4 sm:grid-cols-2">
@@ -550,6 +550,62 @@ function LabeledInput({
   onChange: (value: string) => void;
   placeholder: string;
 }) {
+  const [localValue, setLocalValue] = useState<string>(() => {
+    return value.toFixed(2);
+  });
+  const [isFocused, setIsFocused] = useState(false);
+
+  // Sync local value with prop value when not focused
+  useEffect(() => {
+    if (!isFocused) {
+      setLocalValue(value.toFixed(2));
+    }
+  }, [value, isFocused]);
+
+  const parseInputValue = (input: string): number => {
+    if (input === '' || input === '-') return 0;
+    
+    // If input contains a decimal point, parse it as a dollar amount directly
+    if (input.includes('.')) {
+      const parsed = parseFloat(input);
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    }
+    
+    // If no decimal point, treat as cents (divide by 100)
+    const numeric = parseFloat(input);
+    if (Number.isFinite(numeric) && numeric >= 0) {
+      return numeric / 100;
+    }
+    
+    return 0;
+  };
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = event.target.value;
+    setLocalValue(inputValue);
+    
+    // Convert to dollar amount and pass to parent
+    const dollarAmount = parseInputValue(inputValue);
+    onChange(dollarAmount.toString());
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    // Format the value on blur with 2 decimal places
+    const dollarAmount = parseInputValue(localValue);
+    const formatted = dollarAmount.toFixed(2);
+    setLocalValue(formatted);
+    onChange(formatted);
+  };
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    // When focusing, show the value as cents (multiply by 100) so users can type naturally
+    // e.g., 1.23 becomes 123, allowing them to type 1234 to get 12.34
+    const centsValue = Math.round(value * 100);
+    setLocalValue(centsValue.toString());
+  };
+
   return (
     <div>
       <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -560,8 +616,10 @@ function LabeledInput({
         <input
           type="number"
           step={step}
-          value={value.toFixed(2)}
-          onChange={(event) => onChange(event.target.value)}
+          value={localValue}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          onFocus={handleFocus}
           className="form-input-shell pr-20"
           placeholder={placeholder}
         />
