@@ -108,6 +108,33 @@ const getZoomedDomain = (
   return [Number(nextMin.toFixed(4)), Number(nextMax.toFixed(4))];
 };
 
+const GAS_DOMAIN_LIMITS: [number, number] = [0.25, 20];
+const ELECTRIC_DOMAIN_LIMITS: [number, number] = [0, 2.5];
+const GAS_AXIS_PADDING = 0.5;
+const ELECTRIC_AXIS_PADDING = 0.05;
+
+const computeCenteredDomain = (
+  values: number[],
+  padding: number,
+  fallback: [number, number],
+  bounds: [number, number]
+): [number, number] => {
+  const finiteValues = values.filter((value) => Number.isFinite(value));
+  if (!finiteValues.length) {
+    return fallback;
+  }
+  const minValue = Math.min(...finiteValues);
+  const maxValue = Math.max(...finiteValues);
+  const paddedDomain: [number, number] = [minValue - padding, maxValue + padding];
+  return clampDomainWithinBounds(
+    [
+      Number(paddedDomain[0].toFixed(4)),
+      Number(paddedDomain[1].toFixed(4)),
+    ],
+    bounds
+  );
+};
+
 type ReferenceLineLabelProps = { viewBox?: { x: number; y: number; width: number } };
 
 const createLineLabel = (
@@ -295,8 +322,8 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
     );
     return {
       points,
-      baseGasDomain: [minGas, maxGas] as [number, number],
-      baseElectricDomain: [0, Math.max(baseElectricMax, sliderBounds.max)] as [number, number],
+      fallbackGasDomain: [minGas, maxGas] as [number, number],
+      fallbackElectricDomain: [0, Math.max(baseElectricMax, sliderBounds.max)] as [number, number],
     };
   }, [
     efficiencyRatio,
@@ -394,7 +421,42 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
     },
   ];
 
-  const { points, baseGasDomain, baseElectricDomain } = chartConfig;
+  const { points, fallbackGasDomain, fallbackElectricDomain } = chartConfig;
+
+  const [baseGasDomain, baseElectricDomain] = useMemo(() => {
+    const gasCandidates = [
+      inputs.regularGasPrice,
+      inputs.premiumGasPrice,
+    ];
+    const electricCandidates = [
+      inputs.homeElectricityPrice,
+      inputs.fastChargingPrice,
+      parityRegular,
+      parityPremium,
+    ];
+    const gasDomain = computeCenteredDomain(
+      gasCandidates,
+      GAS_AXIS_PADDING,
+      fallbackGasDomain,
+      GAS_DOMAIN_LIMITS
+    );
+    const electricDomain = computeCenteredDomain(
+      electricCandidates,
+      ELECTRIC_AXIS_PADDING,
+      fallbackElectricDomain,
+      ELECTRIC_DOMAIN_LIMITS
+    );
+    return [gasDomain, electricDomain];
+  }, [
+    fallbackElectricDomain,
+    fallbackGasDomain,
+    inputs.fastChargingPrice,
+    inputs.homeElectricityPrice,
+    inputs.premiumGasPrice,
+    inputs.regularGasPrice,
+    parityPremium,
+    parityRegular,
+  ]);
   const [gasDomain, setGasDomain] = useState<[number, number]>(baseGasDomain);
   const [electricDomain, setElectricDomain] =
     useState<[number, number]>(baseElectricDomain);
@@ -402,25 +464,17 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
   const baseGasSpan = baseGasMax - baseGasMin || 1;
   const [baseElectricMin, baseElectricMax] = baseElectricDomain;
   const baseElectricSpan = baseElectricMax - baseElectricMin || 1;
-  const gasBounds = useMemo<[number, number]>(() => {
-    const padding = Math.max(baseGasSpan * 1.25, 1);
-    const lower = Math.max(0.25, baseGasMin - padding);
-    const upper = Math.min(20, baseGasMax + padding);
-    return [lower, Math.max(lower + 0.1, upper)];
-  }, [baseGasMin, baseGasMax, baseGasSpan]);
-  const electricBounds = useMemo<[number, number]>(() => {
-    const padding = Math.max(baseElectricSpan * 1.25, 0.1);
-    const lower = Math.max(0, baseElectricMin - padding);
-    const upper = Math.min(2.5, baseElectricMax + padding);
-    return [lower, Math.max(lower + 0.05, upper)];
-  }, [baseElectricMin, baseElectricMax, baseElectricSpan]);
-  const minGasSpan = Math.min(Math.max(baseGasSpan * 0.05, 0.1), gasBounds[1] - gasBounds[0]);
-  const maxGasSpan = Math.max(baseGasSpan, gasBounds[1] - gasBounds[0]);
+  const gasBounds = GAS_DOMAIN_LIMITS;
+  const electricBounds = ELECTRIC_DOMAIN_LIMITS;
+  const gasBoundSpan = gasBounds[1] - gasBounds[0];
+  const electricBoundSpan = electricBounds[1] - electricBounds[0];
+  const minGasSpan = Math.min(Math.max(baseGasSpan * 0.05, 0.1), gasBoundSpan);
+  const maxGasSpan = gasBoundSpan;
   const minElectricSpan = Math.min(
     Math.max(baseElectricSpan * 0.05, 0.05),
-    electricBounds[1] - electricBounds[0]
+    electricBoundSpan
   );
-  const maxElectricSpan = Math.max(baseElectricSpan, electricBounds[1] - electricBounds[0]);
+  const maxElectricSpan = electricBoundSpan;
   const pinchDistanceRef = useRef<number | null>(null);
   const chartSurfaceRef = useRef<HTMLDivElement | null>(null);
   const gasDomainRef = useRef(gasDomain);

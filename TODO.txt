@@ -1,3 +1,2 @@
-- Chart needs to auto set axis to max y +-.05 or max x +-.50 with centering on the opposite axis
-- In cost snapshot when details dropdown is clicked it should trigger all 4 cards to display details, We can remove the Fees and extras, the engery cost should the miles driven x cost per mile used to equal the total cost
+- Chart needs tooltip improvement and colors on either side of the breakeven line
 - Need major improvement with electircity rate lookup and gas price lookup
