@@ -19,8 +19,8 @@ import {
 import {
   Area,
   CartesianGrid,
+  ComposedChart,
   Line,
-  LineChart,
   ReferenceDot,
   ReferenceLine,
   ResponsiveContainer,
@@ -147,7 +147,7 @@ const createLineLabel = (
     const labelX = x + width - 10;
     const labelY = y + offsetY;
     const estimatedWidth = Math.max(48, text.length * 6.5);
-    const rectWidth = estimatedWidth + 16;
+    const rectWidth = estimatedWidth + 24;
     const rectHeight = 26;
     const rectX = labelX - rectWidth + 4;
     const rectY = labelY - rectHeight / 2;
@@ -166,12 +166,12 @@ const createLineLabel = (
           strokeWidth={1}
         />
         <text
-          x={labelX - 6}
+          x={rectX + rectWidth / 2}
           y={labelY + 4}
           fill={color}
           fontSize={12}
           fontWeight={600}
-          textAnchor="end"
+          textAnchor="middle"
           style={{ paintOrder: 'stroke' }}
         >
           {text}
@@ -197,14 +197,10 @@ const ChartTooltip = ({ active, payload, label }: any) => {
   const gasPrice = Number(label);
   const electric = payload[0]?.value as number;
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 text-sm text-slate-600 shadow-lg shadow-slate-900/10">
-      <p className="font-semibold text-slate-800">
-        Gas: ${gasPrice.toFixed(2)}/gal
-      </p>
-      <p>Break-even electricity: ${electric.toFixed(3)}/kWh</p>
-      <p className="text-xs text-slate-500">
-        Below this line → EV cheaper · Above this line → Gas cheaper
-      </p>
+    <div className="rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 text-xs text-slate-600 shadow-lg shadow-slate-900/10">
+      <p className="font-semibold text-slate-800 mb-1">Break-evens</p>
+      <p>Gas: ${gasPrice.toFixed(2)}/gal</p>
+      <p>Electricity: ${electric.toFixed(3)}/kWh</p>
     </div>
   );
 };
@@ -411,7 +407,7 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
       label: 'Home vs Premium',
       gasPrice: inputs.premiumGasPrice,
       electricityPrice: inputs.homeElectricityPrice,
-      color: '#fb7185',
+      color: '#0ea5e9',
     },
     {
       label: 'Fast vs Premium',
@@ -460,6 +456,7 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
   const [gasDomain, setGasDomain] = useState<[number, number]>(baseGasDomain);
   const [electricDomain, setElectricDomain] =
     useState<[number, number]>(baseElectricDomain);
+  const [electricMinCurrent, electricMaxCurrent] = electricDomain;
   const [baseGasMin, baseGasMax] = baseGasDomain;
   const baseGasSpan = baseGasMax - baseGasMin || 1;
   const [baseElectricMin, baseElectricMax] = baseElectricDomain;
@@ -691,6 +688,24 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
     pinchDistanceRef.current = null;
   }, []);
 
+  const zonePoints = useMemo(
+    () =>
+      points.map((point) => ({
+        ...point,
+        evFloor: electricMinCurrent,
+        gasCeiling: electricMaxCurrent,
+      })),
+    [points, electricMinCurrent, electricMaxCurrent]
+  );
+  const upperBaseline = useMemo(
+    () => zonePoints.map((point) => ({ x: point.gasPrice, y: point.breakEven })),
+    [zonePoints]
+  );
+  const lowerBaseline = useMemo(
+    () => zonePoints.map((point) => ({ x: point.gasPrice, y: point.evFloor })),
+    [zonePoints]
+  );
+
   return (
     <section className="card-surface bg-white/95 p-6 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -744,7 +759,7 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
         <div className="mt-4 flex flex-col gap-4 lg:flex-row">
           <div
             ref={chartSurfaceRef}
-            className={`rounded-2xl border border-slate-100 bg-slate-50/60 p-4 select-none ${
+            className={`relative rounded-2xl border border-slate-100 bg-slate-50/60 p-4 select-none ${
               isPanning ? 'cursor-grabbing' : 'cursor-grab'
             } lg:flex-1`}
             onPointerDown={handlePointerDown}
@@ -758,16 +773,10 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
             style={{ touchAction: 'none' }}
           >
             <ResponsiveContainer width="100%" height={360}>
-              <LineChart
-                data={points}
+              <ComposedChart
+                data={zonePoints}
                 margin={{ top: 10, right: 20, bottom: 10, left: 0 }}
               >
-                <defs>
-                  <linearGradient id="evZone" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#22c55e" stopOpacity={0.1} />
-                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0.4} />
-                  </linearGradient>
-                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis
                   type="number"
@@ -806,9 +815,21 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
                 <RechartTooltip content={<ChartTooltip />} />
                 <Area
                   type="monotone"
-                  dataKey="breakEven"
+                  dataKey="gasCeiling"
+                  baseLine={upperBaseline}
                   stroke="none"
-                  fill="url(#evZone)"
+                  fill="#fee2e2"
+                  fillOpacity={0.55}
+                  name="Gas cheaper zone"
+                  isAnimationActive={false}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="breakEven"
+                  baseLine={lowerBaseline}
+                  stroke="none"
+                  fill="#d1fae5"
+                  fillOpacity={0.55}
                   name="EV cheaper zone"
                   isAnimationActive={false}
                 />
@@ -819,13 +840,12 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
                   strokeWidth={3}
                   dot={false}
                   name="Break-even"
-                  fill="url(#evZone)"
                 />
                 <ReferenceLine
                   y={inputs.homeElectricityPrice}
                   stroke="#0ea5e9"
                   strokeDasharray="4 4"
-                  label={createLineLabel('Home Charging', '#0ea5e9', -16)}
+                  label={createLineLabel('Home Charging', '#0ea5e9', -2)}
                 />
                 <ReferenceLine
                   y={inputs.fastChargingPrice}
@@ -849,43 +869,16 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
                       strokeWidth={1}
                     />
                   ))}
-              </LineChart>
+              </ComposedChart>
             </ResponsiveContainer>
+            <div className="pointer-events-none absolute right-4 bottom-16 rounded-full bg-emerald-50/90 px-3 py-1 text-xs font-semibold text-emerald-600 shadow-sm">
+              EV cheaper
+            </div>
+            <div className="pointer-events-none absolute right-4 top-6 rounded-full bg-rose-50/90 px-3 py-1 text-xs font-semibold text-rose-600 shadow-sm">
+              Gas cheaper
+            </div>
           </div>
           <div className="flex flex-col gap-4 lg:w-80">
-            <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <svg className="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-                <p className="text-sm font-semibold text-slate-900">Home charging</p>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-slate-600">Regular gas:</span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                    {formatPerMile(actualHomeCostPerMile - gasRegularCostPerMile)} vs regular
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-slate-600">Premium gas:</span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                    {formatPerMile(actualHomeCostPerMile - gasPremiumCostPerMile)} vs premium
-                  </span>
-                </div>
-                <div className="mt-3 pt-3 border-t border-slate-200">
-                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                    Break‑even: Gas price &gt; {formatGasPrice((inputs.homeElectricityPrice * inputs.gasEfficiency) / inputs.evEfficiency)}
-                  </span>
-                </div>
-              </div>
-            </div>
             <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <svg className="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -896,21 +889,49 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs text-slate-600">Regular gas:</span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700">
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                    </svg>
-                    {formatPerMile(fastCostPerMile - gasRegularCostPerMile)} vs regular
-                  </span>
+                  {(() => {
+                    const diff = fastCostPerMile - gasRegularCostPerMile;
+                    const isPositive = diff > 0;
+                    return (
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                        isPositive 
+                          ? 'border-rose-200 bg-rose-50 text-rose-700' 
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      }`}>
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          {isPositive ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          )}
+                        </svg>
+                        {formatPerMile(diff)} vs regular
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs text-slate-600">Premium gas:</span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700">
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                    </svg>
-                    {formatPerMile(fastCostPerMile - gasPremiumCostPerMile)} vs premium
-                  </span>
+                  {(() => {
+                    const diff = fastCostPerMile - gasPremiumCostPerMile;
+                    const isPositive = diff > 0;
+                    return (
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                        isPositive 
+                          ? 'border-rose-200 bg-rose-50 text-rose-700' 
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      }`}>
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          {isPositive ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          )}
+                        </svg>
+                        {formatPerMile(diff)} vs premium
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap gap-2">
                   <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
@@ -918,6 +939,67 @@ export default function BreakEvenExplorer({ inputs }: BreakEvenExplorerProps) {
                   </span>
                   <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
                     &lt; {formatRate(parityPremium)} (premium)
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <svg className="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <p className="text-sm font-semibold text-slate-900">Home charging</p>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-slate-600">Regular gas:</span>
+                  {(() => {
+                    const diff = actualHomeCostPerMile - gasRegularCostPerMile;
+                    const isPositive = diff > 0;
+                    return (
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                        isPositive 
+                          ? 'border-rose-200 bg-rose-50 text-rose-700' 
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      }`}>
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          {isPositive ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          )}
+                        </svg>
+                        {formatPerMile(diff)} vs regular
+                      </span>
+                    );
+                  })()}
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-slate-600">Premium gas:</span>
+                  {(() => {
+                    const diff = actualHomeCostPerMile - gasPremiumCostPerMile;
+                    const isPositive = diff > 0;
+                    return (
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                        isPositive 
+                          ? 'border-rose-200 bg-rose-50 text-rose-700' 
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      }`}>
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          {isPositive ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          )}
+                        </svg>
+                        {formatPerMile(diff)} vs premium
+                      </span>
+                    );
+                  })()}
+                </div>
+                <div className="mt-3 pt-3 border-t border-slate-200">
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                    Break‑even: Gas price &gt; {formatGasPrice((inputs.homeElectricityPrice * inputs.gasEfficiency) / inputs.evEfficiency)}
                   </span>
                 </div>
               </div>
